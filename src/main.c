@@ -38,7 +38,7 @@
 
 typedef struct timezone_contact {
 	double utc_offset;
-	int dst; /* 1 if DST is observed */
+	double dst; /* Not zero if DST is observed */
 	const char* email;
 	const char* name;
 	const char* office_phone;
@@ -598,11 +598,11 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 	{
 		/* RegEx:
 		 *
-		 *    ([\+\-]?\d+\.?\d*)\s+(0|1)\s+"(.*)"\s+"(.*)"\s+"(\+?[\/\-\(\)\w\s]*)"\s+"(\+?[\/\-\(\)\w\s]*)"
+		 *    ([\+\-]?\d+\.?\d*)\s+([\+\-]?\d+\.?\d*)\s+"(.*)"\s+"(.*)"\s+"(\+?[\/\-\(\)\w\s]*)"\s+"(\+?[\/\-\(\)\w\s]*)"
 		 */
 		const char* CONFIG_LINE_REGEX = "([\\+\\-]?[[:digit:]+][\\.[:digit:]]*)" /* group 1: utc offset */
 		                                "[[:space:]]+"
-		                                "(0|1)" /* group 2: dst */
+		                                "([\\+\\-]?[[:digit:]+][\\.[:digit:]]*)" /* group 2: dst */
 		                                "[[:space:]]+"
 		                                "\"(.*)\"" /* group 3: email */
 		                                "[[:space:]]+"
@@ -732,11 +732,11 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 
 			timezone_contact_t contact = (timezone_contact_t) {
 				.utc_offset   = strtod(utc_offset, NULL), // WARNING: The regex above should ensure this does not fail.
-					.dst          = atoi(dst), // WARNING: The regex above should ensure this does not fail.
-					.email        = email,
-					.name         = name,
-					.office_phone = office_phone,
-					.mobile_phone = mobile_phone,
+				.dst          = strtod(dst, NULL), // WARNING: The regex above should ensure this does not fail.
+				.email        = email,
+				.name         = name,
+				.office_phone = office_phone,
+				.mobile_phone = mobile_phone,
 			};
 			free( utc_offset );
 			free( dst );
@@ -789,7 +789,7 @@ bool configuration_write_default( const char* configuration_filename )
 		fprintf( config, "# The format is:\n" );
 		fprintf( config, "#\n" );
 		fprintf( config, "# Offset \tDST \tEmail \tName \tOfficePhone \tMobilePhone\n" );
-		fprintf( config, "+1.0 \t1 \t\"john.doe@example.com\" \"John Doe\" \"+1 305 555 1234\" \"+1 954 555 5678\"\n" );
+		fprintf( config, "+1.0 \t+1.0 \t\"john.doe@example.com\" \"John Doe\" \"+1 305 555 1234\" \"+1 954 555 5678\"\n" );
 
 		fclose( config );
 		result = true;
