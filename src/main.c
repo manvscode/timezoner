@@ -38,7 +38,7 @@
 
 typedef struct timezone_contact {
 	double utc_offset;
-	double dst; /* Not zero if DST is observed */
+	const char* timezone; /* IANA Timezone Code; https://en.wikipedia.org/wiki/List_of_tz_database_time_zones */
 	const char* email;
 	const char* name;
 	const char* office_phone;
@@ -47,7 +47,7 @@ typedef struct timezone_contact {
 
 
 static void about ( int argc, char* argv[] );
-static void organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map );
+static void organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time );
 static bool read_configuration ( timezone_contact_t** contacts );
 static bool configuration_read ( const char* configuration_filename, timezone_contact_t** contacts );
 static bool configuration_read_line ( const char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
@@ -56,13 +56,13 @@ static bool timezone_map_element_destroy ( void *p_key, void *p_value );
 static int  timezone_map_compare ( const void *p_key_left, const void *p_key_right );
 static int  contact_name_compare ( const void *l, const void *r );
 static bool check_alloc( void* mem );
-static void render_row_chart ( lc_tree_map_t* map, time_t now );
-static void render_column_chart ( lc_tree_map_t* map, time_t now );
+static void display_time_grouping ( lc_tree_map_t* map, time_t now );
+static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
 
 
 int main( int argc, char* argv[] )
 {
-	bool render_as_rows = 1; // this is the default
+	bool organize_by_time = 1; // this is the default
 
 	if( argc >= 2 )
 	{
@@ -70,13 +70,13 @@ int main( int argc, char* argv[] )
 		// let's parse them.
 		for( int arg = 1; arg < argc; arg++ )
 		{
-			if( strcmp( "-r", argv[arg] ) == 0 || strcmp( "--rows", argv[arg] ) == 0 )
+			if( strcmp( "-gt", argv[arg] ) == 0 || strcmp( "--group-time", argv[arg] ) == 0 )
 			{
-				render_as_rows = true;
+				organize_by_time = true;
 			}
-			else if( strcmp( "-c", argv[arg] ) == 0 || strcmp( "--columns", argv[arg] ) == 0 )
+			else if( strcmp( "-gu", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
 			{
-				render_as_rows = false;
+				organize_by_time = false;
 			}
 			else if( strcmp( "-h", argv[arg] ) == 0 || strcmp( "--help", argv[arg] ) == 0 )
 			{
@@ -110,17 +110,17 @@ int main( int argc, char* argv[] )
 		goto done;
 	}
 
-	organize_data( contacts, &map );
-
 	time_t now = time(NULL);
 
-	if( render_as_rows )
+	organize_data( contacts, &map, now, organize_by_time );
+
+	if( organize_by_time )
 	{
-		render_row_chart( &map, now );
+		display_time_grouping( &map, now );
 	}
 	else
 	{
-		render_column_chart( &map, now );
+		display_utc_grouping( &map, now );
 	}
 
 done:
@@ -130,6 +130,7 @@ done:
 	while( lc_vector_size(contacts) > 0 )
 	{
 		timezone_contact_t* contact = &lc_vector_last(contacts);
+		free( (void*) contact->timezone );
 		free( (void*) contact->email );
 		free( (void*) contact->name );
 		free( (void*) contact->office_phone );
@@ -159,18 +160,32 @@ void about( int argc, char* argv[] )
 	printf( "\n" );
 
 	printf( "Command Line Options:\n" );
-	printf( "    %-2s, %-12s   %-50s\n", "-r", "--rows", "Display using rows." );
-	printf( "    %-2s, %-12s   %-50s\n", "-c", "--columns", "Display using columns" );
+	printf( "    %-2s, %-20s   %-50s\n", "-gt", "--group-time", "Group contacts by time." );
+	printf( "    %-2s, %-20s   %-50s\n", "-gu", "--group-utc-offset", "Group contacts by UTC offset." );
 	printf( "\n" );
 }
 
-void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map )
+void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time )
 {
 	// Group all contacts by timezone...
 	for( int i = 0; i < lc_vector_size(contacts); i++ )
 	{
 		const timezone_contact_t* contact = &contacts[ i ];
-		lc_tree_map_iterator_t itr = lc_tree_map_find( map, &contact->utc_offset );
+
+		struct tm* tz_time = time_local( now, contact->timezone );
+		char group_key[ 32 ];
+
+		if( organize_by_time )
+		{
+			strftime(group_key, sizeof(group_key), "%T" /* %T for 24-hour time */, tz_time );
+		}
+		else
+		{
+			snprintf(group_key, sizeof(group_key), "%+05.1f", contact->utc_offset );
+			//strftime(group_key, sizeof(group_key), "%z" /* utc offset */, tz_time );
+		}
+
+		lc_tree_map_iterator_t itr = lc_tree_map_find( map, group_key );
 
 		if( itr != lc_tree_map_end() )
 		{
@@ -185,7 +200,7 @@ void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map )
 			timezone_contact_t const ** list = NULL;
 			lc_vector_create(list, 1);
 			lc_vector_push(list, contact);
-			lc_tree_map_insert( map, &contact->utc_offset, list );
+			lc_tree_map_insert( map, string_dup(group_key), list );
 		}
 	}
 
@@ -200,7 +215,7 @@ void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map )
 	}
 }
 
-void render_row_chart( lc_tree_map_t* map, time_t now )
+void display_time_grouping( lc_tree_map_t* map, time_t now )
 {
 	if( lc_tree_map_size( map ) == 0 )
 	{
@@ -213,11 +228,17 @@ void render_row_chart( lc_tree_map_t* map, time_t now )
 	{
 		timezone_contact_t** list = itr->value;
 
-		printf( "+----------------------------------------------------[ " );
-		console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA);
-		printf( "UTC%+05.1f", *((double*)itr->key) );
+		printf( "+--[ " );
+		console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
+
+
+		struct tm* tz_time = time_local( now, list[0]->timezone );
+		char time_str[ 32 ];
+		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
+
+		printf( "%s", time_str );
 		console_reset( stdout );
-		printf( " ]---------------------------------------------------+\n" );
+		printf( " ]-------------------------------------------------------------------------------------------+\n" );
 
 		for( int i = 0; i < lc_vector_size(list); i++ )
 		{
@@ -226,43 +247,28 @@ void render_row_chart( lc_tree_map_t* map, time_t now )
 			printf( "| " );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-			if( strlen(contact->name) > 24)
+			if( strlen(contact->name) > 30)
 			{
 				// truncated
-				printf( "%-.*s...  ", 21, contact->name );
+				printf( "%-.*s...  ", 27, contact->name );
 			}
 			else
 			{
 				// fixed width
-				printf( "%-*s  ", 24, contact->name );
+				printf( "%-*s  ", 30, contact->name );
 			}
-			console_reset( stdout );
-
-
-			struct tm* utc_time = gmtime(&now);
-			//time_t offset_time = mktime(utc_time) + ((contact->utc_offset) * 3600.0);
-			time_t offset_time = now + ((contact->utc_offset + contact->dst) * 3600.0);
-
-			struct tm* other_time = gmtime(&offset_time);
-
-			char time_str[12];
-			strftime(time_str, sizeof(time_str), "%I:%M:%S %p", other_time);
-			time_str[ sizeof(time_str) - 1 ] = '\0';
-
-			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
-			printf( "%-12s  ", time_str );
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->email) > 21)
+			if( strlen(contact->email) > 23)
 			{
 				// truncated
-				printf( "\u2709 %-.*s...  ", 21, contact->email );
+				printf( "\u2709 %-.*s...  ", 23, contact->email );
 			}
 			else
 			{
 				// fixed width
-				printf( "\u2709 %-*s  ", 24, contact->email );
+				printf( "\u2709 %-*s  ", 25, contact->email );
 			}
 			console_reset( stdout );
 
@@ -296,10 +302,10 @@ void render_row_chart( lc_tree_map_t* map, time_t now )
 		} // for
 	} // for
 
-	printf( "+-------------------------------------------------------------------------------------------------------------------+\n" );
+	printf( "+------------------------------------------------------------------------------------------------------------+\n" );
 }
 
-void render_column_chart( lc_tree_map_t* map, time_t now )
+void display_utc_grouping( lc_tree_map_t* map, time_t now )
 {
 	if( lc_tree_map_size( map ) == 0 )
 	{
@@ -326,7 +332,7 @@ void render_column_chart( lc_tree_map_t* map, time_t now )
 			timezone_contact_t* contact = lc_vector_last(list);
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA );
-			printf( "        UTC%+05.1f         ", *((double*)itr->key) );
+			printf( "        UTC%s         ", (const char*) itr->key );
 			console_reset( stdout );
 			printf("|");
 		} // for
@@ -389,13 +395,10 @@ void render_column_chart( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				struct tm* utc_time = gmtime(&now);
-				//time_t offset_time = mktime(utc_time) + ((contact->utc_offset) * 3600.0);
-				time_t offset_time = now + ((contact->utc_offset + contact->dst) * 3600.0);
-				struct tm* other_time = gmtime(&offset_time);
+				struct tm* tz_time = time_local( now, contact->timezone );
 
 				char time_str[12];
-				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", other_time);
+				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
 				time_str[ sizeof(time_str) - 1 ] = '\0';
 
 				console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
@@ -598,19 +601,17 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 	{
 		/* RegEx:
 		 *
-		 *    ([\+\-]?\d+\.?\d*)\s+([\+\-]?\d+\.?\d*)\s+"(.*)"\s+"(.*)"\s+"(\+?[\/\-\(\)\w\s]*)"\s+"(\+?[\/\-\(\)\w\s]*)"
+		 *    ([\w]+\/[\w]+)\s+"(.*)"\s+"(.*)"\s+"(\+?[\/\-\(\)\w\s]*)"\s+"(\+?[\/\-\(\)\w\s]*)"
 		 */
-		const char* CONFIG_LINE_REGEX = "([\\+\\-]?[[:digit:]+][\\.[:digit:]]*)" /* group 1: utc offset */
+		const char* CONFIG_LINE_REGEX = "([[:alpha:]_]+/[[:alpha:]_]+)" /* group 1: timezone code */
 		                                "[[:space:]]+"
-		                                "([\\+\\-]?[[:digit:]+][\\.[:digit:]]*)" /* group 2: dst */
+		                                "\"(.*)\"" /* group 2: email */
 		                                "[[:space:]]+"
-		                                "\"(.*)\"" /* group 3: email */
+		                                "\"(.*)\"" /* group 3: name */
 		                                "[[:space:]]+"
-		                                "\"(.*)\"" /* group 4: name */
+		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\"" /* group 4: office number */
 		                                "[[:space:]]+"
-		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\"" /* group 5: office number */
-		                                "[[:space:]]+"
-		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\""; /* group 6: mobile number */
+		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\""; /* group 5: mobile number */
 		regex_t regex;
 		int regex_comp_result = regcomp( &regex, CONFIG_LINE_REGEX, REG_EXTENDED | REG_ICASE);
 
@@ -669,8 +670,8 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 
 bool configuration_read_line( const char* line, int line_number, regex_t* regex, timezone_contact_t** contacts )
 {
-	char* utc_offset = NULL;
-	char* dst = NULL;
+	char* tz_string = NULL;
+
 	char* email = NULL;
 	char* name = NULL;
 	char* office_phone = NULL;
@@ -694,52 +695,46 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 
 		if( !regex_result )
 		{
-			size_t utc_offset_len = matches[1].rm_eo - matches[1].rm_so;
-			utc_offset = malloc( utc_offset_len + 1 );
-			if( !check_alloc(utc_offset) ) goto line_read_failed;
-			memcpy( utc_offset, line + matches[1].rm_so, utc_offset_len );
-			utc_offset[ utc_offset_len ] = '\0';
+			size_t tz_string_len = matches[ 1 ].rm_eo - matches[ 1 ].rm_so;
+			tz_string = malloc( tz_string_len + 1 );
+			if( !check_alloc(tz_string) ) goto line_read_failed;
+			memcpy( tz_string, line + matches[ 1 ].rm_so, tz_string_len );
+			tz_string[ tz_string_len ] = '\0';
 
-			size_t dst_len = matches[2].rm_eo - matches[2].rm_so;
-			dst = malloc( dst_len + 1 );
-			if( !check_alloc(dst) ) goto line_read_failed;
-			memcpy( dst, line + matches[2].rm_so, dst_len );
-			dst[ dst_len ] = '\0';
-
-			size_t email_len = matches[3].rm_eo - matches[3].rm_so;
+			size_t email_len = matches[ 2 ].rm_eo - matches[ 2 ].rm_so;
 			email = malloc( email_len + 1 );
 			if( !check_alloc(email) ) goto line_read_failed;
-			memcpy( email, line + matches[3].rm_so, email_len );
+			memcpy( email, line + matches[ 2 ].rm_so, email_len );
 			email[ email_len ] = '\0';
 
-			size_t name_len = matches[4].rm_eo - matches[4].rm_so;
+			size_t name_len = matches[ 3 ].rm_eo - matches[ 3 ].rm_so;
 			name = malloc( name_len + 1 );
 			if( !check_alloc(name) ) goto line_read_failed;
-			memcpy( name, line + matches[4].rm_so, name_len );
+			memcpy( name, line + matches[ 3 ].rm_so, name_len );
 			name[ name_len ] = '\0';
 
-			size_t office_phone_len = matches[5].rm_eo - matches[5].rm_so;
+			size_t office_phone_len = matches[ 4 ].rm_eo - matches[ 4 ].rm_so;
 			office_phone = malloc( office_phone_len + 1 );
 			if( !check_alloc(office_phone) ) goto line_read_failed;
-			memcpy( office_phone, line + matches[5].rm_so, office_phone_len );
+			memcpy( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
 			office_phone[ office_phone_len ] = '\0';
 
-			size_t mobile_phone_len = matches[6].rm_eo - matches[6].rm_so;
+			size_t mobile_phone_len = matches[ 5 ].rm_eo - matches[ 5 ].rm_so;
 			mobile_phone = malloc( mobile_phone_len + 1 );
 			if( !check_alloc(mobile_phone) ) goto line_read_failed;
-			memcpy( mobile_phone, line + matches[6].rm_so, mobile_phone_len );
+			memcpy( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
 			mobile_phone[ mobile_phone_len ] = '\0';
 
+			double utc_offset = time_utc_offset( tz_string );
+
 			timezone_contact_t contact = (timezone_contact_t) {
-				.utc_offset   = strtod(utc_offset, NULL), // WARNING: The regex above should ensure this does not fail.
-				.dst          = strtod(dst, NULL), // WARNING: The regex above should ensure this does not fail.
+				.utc_offset   = utc_offset,
+				.timezone     = tz_string,
 				.email        = email,
 				.name         = name,
 				.office_phone = office_phone,
 				.mobile_phone = mobile_phone,
 			};
-			free( utc_offset );
-			free( dst );
 			lc_vector_push( *contacts, contact );
 		}
 		else if (regex_result == REG_NOMATCH)
@@ -765,8 +760,7 @@ line_read_success:
 	return true;
 
 line_read_failed:
-	free( utc_offset );
-	free( dst );
+	free( tz_string );
 	free( email );
 	free( name );
 	free( office_phone );
@@ -784,12 +778,13 @@ bool configuration_write_default( const char* configuration_filename )
 	{
 		fprintf( config, "# -------------------------------\n" );
 		fprintf( config, "# This is the configuration for the timezoner program. You can\n" );
-		fprintf( config, "# add new contacts here.\n" );
+		fprintf( config, "# add new contacts here. A list of IANA timezones is available\n" );
+		fprintf( config, "# from here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones\n" );
 		fprintf( config, "#\n" );
 		fprintf( config, "# The format is:\n" );
 		fprintf( config, "#\n" );
-		fprintf( config, "# Offset \tDST \tEmail \tName \tOfficePhone \tMobilePhone\n" );
-		fprintf( config, "+1.0 \t+1.0 \t\"john.doe@example.com\" \"John Doe\" \"+1 305 555 1234\" \"+1 954 555 5678\"\n" );
+		fprintf( config, "# Timezone \t\tEmail \tName \tOfficePhone \tMobilePhone\n" );
+		fprintf( config, "America/New_York \t\"john.doe@example.com\" \"John Doe\" \"+1 305 555 1234\" \"+1 954 555 5678\"\n" );
 
 		fclose( config );
 		result = true;
@@ -801,6 +796,8 @@ bool configuration_write_default( const char* configuration_filename )
 bool timezone_map_element_destroy( void *p_key, void *p_value )
 {
 	timezone_contact_t** list = p_value;
+
+	free( p_key );
 
 	if( list )
 	{
@@ -818,21 +815,9 @@ bool timezone_map_element_destroy( void *p_key, void *p_value )
 
 int timezone_map_compare( const void *p_key_left, const void *p_key_right )
 {
-	const double* l = p_key_left;
-	const double* r = p_key_right;
-
-	if( *l < *r )
-	{
-		return -1;
-	}
-	else if( *l > *r )
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
+	const char* l = p_key_left;
+	const char* r = p_key_right;
+	return strcmp( l, r );
 }
 
 int contact_name_compare( const void *l, const void *r )
