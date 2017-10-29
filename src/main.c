@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#define __USE_XOPEN
 #include <time.h>
 #include <limits.h>
 #include <pwd.h>
@@ -48,7 +49,7 @@ typedef struct timezone_contact {
 
 static void about ( int argc, char* argv[] );
 static void organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time );
-static bool read_configuration ( timezone_contact_t** contacts );
+static bool read_configuration_from_home ( timezone_contact_t** contacts );
 static bool configuration_read ( const char* configuration_filename, timezone_contact_t** contacts );
 static bool configuration_read_line ( const char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
 static bool configuration_write_default ( const char* configuration_filename );
@@ -63,6 +64,8 @@ static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
 int main( int argc, char* argv[] )
 {
 	bool organize_by_time = 1; // this is the default
+	const char* config_filename = NULL;
+	time_t now = time(NULL);
 
 	if( argc >= 2 )
 	{
@@ -70,13 +73,84 @@ int main( int argc, char* argv[] )
 		// let's parse them.
 		for( int arg = 1; arg < argc; arg++ )
 		{
-			if( strcmp( "-gt", argv[arg] ) == 0 || strcmp( "--group-time", argv[arg] ) == 0 )
+			if( strcmp( "-T", argv[arg] ) == 0 || strcmp( "--group-time", argv[arg] ) == 0 )
 			{
 				organize_by_time = true;
 			}
-			else if( strcmp( "-gu", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
+			else if( strcmp( "-U", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
 			{
 				organize_by_time = false;
+			}
+			else if( strcmp( "-f", argv[arg] ) == 0 || strcmp( "--file", argv[arg] ) == 0 )
+			{
+				if( (arg + 1) < argc )
+				{
+					config_filename = argv[ arg + 1];
+				}
+				else
+				{
+					console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+					fprintf( stderr, "ERROR: " );
+					console_reset( stderr );
+					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
+					return -2;
+				}
+				 arg += 1;
+			}
+			else if( strcmp( "-t", argv[arg] ) == 0 || strcmp( "--time", argv[arg] ) == 0 )
+			{
+				if( (arg + 1) < argc )
+				{
+					string_trim( argv[ arg + 1 ], " \t\n" );
+
+					const char* formats[] = {
+						"%I:%M:%S %p", /* 01:35:10 PM */
+						"%I:%M %p",    /* 01:35 PM */
+						"%H:%M:%S",    /* 13:35:10  */
+						"%H:%M"        /* 13:35 */
+					};
+					size_t formats_len = sizeof(formats) / sizeof(formats[0]);
+					struct tm tm;
+					bool time_parsed = false;
+
+					/* Initialize with today's date and clear hours, minutes, seconds. */
+					localtime_r( &now, &tm );
+					tm.tm_sec  = 0;
+					tm.tm_min  = 0;
+					tm.tm_hour = 0;
+
+					for( int i = 0; !time_parsed && i < formats_len; i++ )
+					{
+						char* result = strptime( argv[ arg + 1], formats[ i ], &tm );
+						if( result && *result == '\0' )
+						{
+							time_parsed = true;
+						}
+					}
+
+
+					if( time_parsed )
+					{
+						now = mktime( &tm );
+					}
+					else
+					{
+						console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+						fprintf( stderr, "ERROR: " );
+						console_reset( stderr );
+						fprintf( stderr, "Failed to match time for '%s'\n", argv[arg + 1] );
+						return -2;
+					}
+				}
+				else
+				{
+					console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+					fprintf( stderr, "ERROR: " );
+					console_reset( stderr );
+					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
+					return -2;
+				}
+				 arg += 1;
 			}
 			else if( strcmp( "-h", argv[arg] ) == 0 || strcmp( "--help", argv[arg] ) == 0 )
 			{
@@ -105,12 +179,17 @@ int main( int argc, char* argv[] )
 	lc_tree_map_t map;
 	lc_tree_map_create( &map, timezone_map_element_destroy, timezone_map_compare, malloc, free );
 
-	if( !read_configuration( &contacts ) )
+	if( config_filename )
+	{
+		if( !configuration_read( config_filename, &contacts ) )
+		{
+			goto done;
+		}
+	}
+	else if( !read_configuration_from_home( &contacts ) )
 	{
 		goto done;
 	}
-
-	time_t now = time(NULL);
 
 	organize_data( contacts, &map, now, organize_by_time );
 
@@ -160,8 +239,10 @@ void about( int argc, char* argv[] )
 	printf( "\n" );
 
 	printf( "Command Line Options:\n" );
-	printf( "    %-2s, %-20s   %-50s\n", "-gt", "--group-time", "Group contacts by time." );
-	printf( "    %-2s, %-20s   %-50s\n", "-gu", "--group-utc-offset", "Group contacts by UTC offset." );
+	printf( "    %-2s, %-20s  %-50s\n", "-f", "--file", "Use a specific configuration file." );
+	printf( "    %-2s, %-20s  %-50s\n", "-t", "--time", "Use a specific time." );
+	printf( "    %-2s, %-20s  %-50s\n", "-T", "--group-time", "Group contacts by time." );
+	printf( "    %-2s, %-20s  %-50s\n", "-U", "--group-utc-offset", "Group contacts by UTC offset." );
 	printf( "\n" );
 }
 
@@ -551,7 +632,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 }
 
-bool read_configuration( timezone_contact_t** contacts )
+bool read_configuration_from_home( timezone_contact_t** contacts )
 {
 	bool result = true;
 	struct passwd *pw = getpwuid(getuid());
@@ -585,7 +666,7 @@ bool read_configuration( timezone_contact_t** contacts )
 			goto done;
 		}
 
-		result = read_configuration( contacts );
+		result = read_configuration_from_home( contacts );
 	}
 
 done:
