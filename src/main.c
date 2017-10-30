@@ -680,11 +680,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 
 	if( config )
 	{
-		/* RegEx:
-		 *
-		 *    ([\w]+\/[\w]+)\s+"(.*)"\s+"(.*)"\s+"(\+?[\/\-\(\)\w\s]*)"\s+"(\+?[\/\-\(\)\w\s]*)"
-		 */
-		const char* CONFIG_LINE_REGEX = "([[:alpha:]_]+/[[:alpha:]_]+)" /* group 1: timezone code */
+		const char* CONFIG_LINE_REGEX = "([[:alpha:]]+?/?[[:alnum:]_]+)" /* group 1: timezone code */
 		                                "[[:space:]]+"
 		                                "\"(.*)\"" /* group 2: email */
 		                                "[[:space:]]+"
