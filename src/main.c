@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <wchar.h>
+#include <locale.h>
 #define __USE_XOPEN
 #include <time.h>
 #include <limits.h>
@@ -66,6 +68,8 @@ int main( int argc, char* argv[] )
 	bool organize_by_time = 1; // this is the default
 	const char* config_filename = NULL;
 	time_t now = time(NULL);
+
+	setlocale( LC_ALL, "" );
 
 	if( argc >= 2 )
 	{
@@ -303,13 +307,22 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 		return;
 	}
 
+	bool first = true;
+
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 	     itr != lc_tree_map_end( );
 	     itr = lc_tree_map_next(itr) )
 	{
 		timezone_contact_t** list = itr->value;
 
-		printf( "+--[ " );
+		if( first )
+		{
+			printf( "\u250c\u2500\u2500\u2524 " );
+		}
+		else
+		{
+			printf( "\u251c\u2500\u2500\u2524 " );
+		}
 		console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
 
 
@@ -319,13 +332,28 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 
 		printf( "%s", time_str );
 		console_reset( stdout );
-		printf( " ]-------------------------------------------------------------------------------------------+\n" );
+
+		printf( " \u251c" );
+		int count = 90;
+		while( count-- > 0 )
+		{
+			printf( "\u2500" );
+		}
+		if( first )
+		{
+			printf( "\u2510\n" );
+			first = false;
+		}
+		else
+		{
+			printf( "\u2524\n" );
+		}
 
 		for( int i = 0; i < lc_vector_size(list); i++ )
 		{
 			timezone_contact_t* contact = list[ i ];
 
-			printf( "| " );
+			printf( "\u2502 " );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
 			if( strlen(contact->name) > 30)
@@ -344,12 +372,12 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			if( strlen(contact->email) > 23)
 			{
 				// truncated
-				printf( "\u2709 %-.*s...  ", 23, contact->email );
+				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, 23, contact->email );
 			}
 			else
 			{
 				// fixed width
-				printf( "\u2709 %-*s  ", 25, contact->email );
+				printf( "%lc %-*s  ", (wchar_t) 0x2709, 25, contact->email );
 			}
 			console_reset( stdout );
 
@@ -357,12 +385,12 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			if( strlen(contact->office_phone) > 17)
 			{
 				// truncated
-				printf( "\u260E  %-.*s... ", 17, contact->office_phone );
+				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, 17, contact->office_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "\u260E  %-*s ", 19, contact->office_phone );
+				printf( "%lc  %-*s ", (wchar_t) 0x260e, 19, contact->office_phone );
 			}
 			console_reset( stdout );
 
@@ -370,20 +398,30 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			if( strlen(contact->mobile_phone) > 17)
 			{
 				// truncated
-				printf( "\u260F  %-.*s... ", 17, contact->mobile_phone );
+				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "\u260F  %-*s ", 19, contact->mobile_phone );
+				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 			}
 			console_reset( stdout );
 
-			printf( "|\n" );
+			printf( "\u2502\n" );
 		} // for
 	} // for
 
-	printf( "+------------------------------------------------------------------------------------------------------------+\n" );
+
+
+	printf( "\u2514" );
+	int count = 107;
+	while( count-- > 0 )
+	{
+		printf( "\u2500" );
+	}
+	printf( "\u2518\n" );
+
+	//printf( "+-----------------------------------------------------------------------------------------------------------+\n" );
 }
 
 void display_utc_grouping( lc_tree_map_t* map, time_t now )
@@ -393,18 +431,34 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 		return;
 	}
 
+	lc_tree_map_iterator_t last_node = lc_tree_map_node_maximum( lc_tree_map_root(map) );
+
 	// start of headers
 	{
-		printf("+");
+		printf("\u250c");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
 		{
-			printf( "-------------------------+" );
+			int column_width = 25;
+			while( column_width-- > 0 )
+			{
+				printf( "\u2500" );
+			}
+
+			if( itr == last_node )
+			{
+				printf( "\u2510" );
+			}
+			else
+			{
+				printf( "\u252c" );
+			}
+
 		} // for
 		printf("\n");
 
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -415,18 +469,34 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA );
 			printf( "        UTC%s         ", (const char*) itr->key );
 			console_reset( stdout );
-			printf("|");
+			printf("\u2502");
 		} // for
 		printf("\n");
 
-		printf("+");
+		printf("\u251c");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
 		{
-			printf( "-------------------------+" );
+			int column_width = 25;
+			while( column_width-- > 0 )
+			{
+				printf( "\u2500" );
+			}
+
+			if( itr == last_node )
+			{
+				printf( "\u2524" );
+			}
+			else
+			{
+				printf( "\u253c" );
+			}
+
 		} // for
 		printf("\n");
+
+
 	} // end of headers
 
 
@@ -434,7 +504,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 	while( timezone_count > 0 )
 	{
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -461,11 +531,11 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				printf( " %-23s ", "" );
 			}
-			printf("|");
+			printf("\u2502");
 		} // for
 		printf("\n");
 
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -490,11 +560,11 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				printf( "%-24s ", "" );
 			}
-			printf("|");
+			printf("\u2502");
 		} // for
 		printf("\n");
 
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -522,11 +592,11 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				printf( "%-24s ", "" );
 			}
-			printf("|");
+			printf("\u2502");
 		} // for
 		printf("\n");
 
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -554,11 +624,11 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				printf( "%-24s ", "" );
 			}
 
-			printf("|");
+			printf("\u2502");
 		} // for
 		printf("\n");
 
-		printf("|");
+		printf("\u2502");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -572,19 +642,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				if( strlen(contact->mobile_phone) > 17)
 				{
 					// truncated
-					printf( "  \u260F  %-.*s... ", 17, contact->mobile_phone );
+					printf( "   %lc%-.*s ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
 				}
 				else
 				{
 					// fixed width
-					printf( "  \u260F  %-*s ", 19, contact->mobile_phone );
+					printf( "   %lc%-*s ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 				}
 				console_reset( stdout );
-				printf("|");
+				printf("\u2502");
 			}
 			else
 			{
-				printf( "%-24s |", "" );
+				printf( "%-24s ", "" );
+				printf("\u2502");
 			}
 		} // for
 		printf("\n");
@@ -618,6 +689,30 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 	// start of footer
 	{
+		printf("\u2514");
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			int column_width = 25;
+			while( column_width-- > 0 )
+			{
+				printf( "\u2500" );
+			}
+
+			if( itr == last_node )
+			{
+				printf( "\u2518" );
+			}
+			else
+			{
+				printf( "\u2534" );
+			}
+
+		} // for
+		printf("\n");
+
+		/*
 		printf("+");
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
@@ -626,6 +721,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			printf( "-------------------------+" );
 		} // for
 		printf("\n");
+		*/
 	} // end of footer
 
 	lc_tree_map_clear( map );
