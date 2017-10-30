@@ -2,71 +2,99 @@
 
 > A command line tool for collaborating across timezones.
 
-At [End Point Corporation](https://endpoint.com/), our team is spread out across 10 time-zones. This can make
-collaborating on opensource projects quite challenging. To make things easier and to set the stage
-to develop this idea further, I have decided to write a small command line utility that will allow
-one to quickly check what time it is for each their colleagues.
+## Configuration
 
-Every timezone is relative to [Coordinated Universal Time (UTC)](https://en.wikipedia.org/wiki/Coordinated_Universal_Time) and has an associated offset. These
-offsets are usually in whole hour increments, but they may include partial hours. For example, [Eastern Standard Time (EST)](https://en.wikipedia.org/wiki/Eastern_Time_Zone)
-is five hours behind UTC and [Indian Standard Time (IST)](https://en.wikipedia.org/wiki/Indian_Standard_Time) is five and half
-hours ahead of UTC. Moreover, some regions may not observe [daylight savings time (DST)](https://en.wikipedia.org/wiki/Daylight_saving_time)
-while other regions do. For Australia, this can be quite challenging since it's left to local governments to
-decide whether DST is observed.
+Timezoner will create a default configuration under your user's home directory (~/.timzoner) if one
+does not already exist.  The configuration file is structured with several fields that are
+separated with whitespace. The fields are:
 
-Now to make all of time coordination easier, you can use this utility to do all of the time
-conversions for you.  First, you have to add each coworker's information to a configuration file
-stored at ~/.timezoner. This configuration file describes every colleague's UTC offset for their
-timezone, whether they observe daylight savings time, their full name, their email address, their
-office phone number, and their mobile phone number. As an example, this is what the configuration
-file looks like:
+* The IANA timezone code.  The second field is
+* The email address of the contact wrapped in double-quotes.
+* The full name of the contact wrapped in double-quotes.
+* The office phone number of the contact wrapped in double-quotes.
+* The mobile phone number of the contact wrapped in double-quotes.
 
-	# This is a comment.
-	# Offset  DST  Email                  Name                OfficePhone         MobilePhone
-	-05.0     1    "edward@example.com"   "Edward Teach "     "n/a"               "+1 731 555 1234"
-	-06.0     1    "henry@dexample.com"   "Henry Morgan"      "+1 646 555 5678"   "+1 954 555 5678"
-	-05.0     1    "john@example.com"     "John Auger"        "n/a"               "+1 902 555 1234"
-	+05.5     0    "sam@example.com"      "Samuel Bellamy"    "+1 347 535 1234"   "+1 994 555 5678"
-	-05.0     1    "william@example.com"  "William Kidd"      "+1 330 555 5678"   "+1 305 555 1234"
-	-07.0     1    "israel@example.com"   "Israel Hands"      "+1 507 555 1234"   "+1 208 555 5678"
+As an example, a valid configuration file looks like this:
 
-Now when I need to inquire what time is it for my team, I can run it and get some nice formatted
-output:
+	# Timezone           Email                  Name                OfficePhone         MobilePhone
+	America/New_York     "edward@example.com"   "Edward Teach "     "n/a"               "+1 731 555 1234"
+	America/Denver       "henry@dexample.com"   "Henry Morgan"      "+1 646 555 5678"   "+1 954 555 5678"
+	America/New_York     "john@example.com"     "John Auger"        "n/a"               "+1 902 555 1234"
+	America/Los_Angeles  "sam@example.com"      "Samuel Bellamy"    "+1 347 535 1234"   "+1 994 555 5678"
+	America/Los_Angeles  "william@example.com"  "William Kidd"      "+1 330 555 5678"   "+1 305 555 1234"
+	America/Chicago      "israel@example.com"   "Israel Hands"      "+1 507 555 1234"   "+1 208 555 5678"
 
-	[~]$ timezoner -r
-	+----------------------------------------------------[ UTC-07.0 ]---------------------------------------------------+
-	| Israel Hands              11:12:14 PM   ✉ israel@example.com        ☎  +1 507 555 1234     ☏  +1 208 555 5678     |
-	+----------------------------------------------------[ UTC-06.0 ]---------------------------------------------------+
-	| Henry Morgan              12:12:14 AM   ✉ henry@dexample.com        ☎  +1 646 555 5678     ☏  +1 954 555 5678     |
-	+----------------------------------------------------[ UTC-05.0 ]---------------------------------------------------+
-	| Edward Teach              01:12:14 AM   ✉ edward@example.com        ☎  n/a                 ☏  +1 731 555 1234     |
-	| John Auger                01:12:14 AM   ✉ john@example.com          ☎  n/a                 ☏  +1 902 555 1234     |
-	| William Kidd              01:12:14 AM   ✉ william@example.com       ☎  +1 330 555 5678     ☏  +1 305 555 1234     |
-	+----------------------------------------------------[ UTC+05.5 ]---------------------------------------------------+
-	| Samuel Bellamy            10:42:14 AM   ✉ sam@example.com           ☎  +1 347 535 1234     ☏  +1 994 555 5678     |
-	+-------------------------------------------------------------------------------------------------------------------+
+## Grouping Contacts by Time
 
+With the '-T' option, contacts are grouped by their local time. For the above configuration, this looks
+like this:
 
-	[~]$ timezoner -c
+	$ timezoner -T
+	+--[ 12:43:27 PM ]-------------------------------------------------------------------------------------------+
+	| Samuel Bellamy                  ✉ sam@example.com            ☎  +1 347 535 1234     ☏  +1 994 555 5678     |
+	| William Kidd                    ✉ william@example.com        ☎  +1 330 555 5678     ☏  +1 305 555 1234     |
+	+--[ 01:43:27 PM ]-------------------------------------------------------------------------------------------+
+	| Henry Morgan                    ✉ henry@dexample.com         ☎  +1 646 555 5678     ☏  +1 954 555 5678     |
+	+--[ 02:43:27 PM ]-------------------------------------------------------------------------------------------+
+	| Israel Hands                    ✉ israel@example.com         ☎  +1 507 555 1234     ☏  +1 208 555 5678     |
+	+--[ 03:43:27 PM ]-------------------------------------------------------------------------------------------+
+	| Edward Teach                    ✉ edward@example.com         ☎  n/a                 ☏  +1 731 555 1234     |
+	| John Auger                      ✉ john@example.com           ☎  n/a                 ☏  +1 902 555 1234     |
+	+------------------------------------------------------------------------------------------------------------+
+
+## Grouping Contacts by UTC Offset
+
+If you prefer to group contacts by their UTC offset, you can use the '-U' option to do this.
+
+	$ timezoner -U                                                                                                                                                                                                                          *[master] 
 	+-------------------------+-------------------------+-------------------------+-------------------------+
-	|        UTC-07.0         |        UTC-06.0         |        UTC-05.0         |        UTC+05.5         |
+	|        UTC-05.0         |        UTC-06.0         |        UTC-07.0         |        UTC-08.0         |
 	+-------------------------+-------------------------+-------------------------+-------------------------+
-	| Israel Hands            | Henry Morgan            | William Kidd            | Samuel Bellamy          |
-	|    11:13:54 PM          |    12:13:54 AM          |    01:13:54 AM          |    10:43:54 AM          |
-	|    israel@example.co... |    henry@dexample.co... |    william@example.c... |    sam@example.com      |
-	|    +1 507 555 1234      |    +1 646 555 5678      |    +1 330 555 5678      |    +1 347 535 1234      |
-	|    +1 208 555 5678      |    +1 954 555 5678      |    +1 305 555 1234      |    +1 994 555 5678      |
-	|                         |                         | John Auger              |                         |
-	|                         |                         |    01:13:54 AM          |                         |
-	|                         |                         |    john@example.com     |                         |
-	|                         |                         |    n/a                  |                         |
-	|                         |                         |    +1 902 555 1234      |                         |
-	|                         |                         | Edward Teach            |                         |
-	|                         |                         |    01:13:54 AM          |                         |
-	|                         |                         |    edward@example.co... |                         |
-	|                         |                         |    n/a                  |                         |
-	|                         |                         |    +1 731 555 1234      |                         |
+	| John Auger              | Israel Hands            | Henry Morgan            | William Kidd            |
+	|  ⏰ 03:43:57 PM         |  ⏰ 02:43:57 PM         |  ⏰ 01:43:57 PM         |  ⏰ 12:43:57 PM         |
+	|  ✉ john@example.com     |  ✉ israel@example.co... |  ✉ henry@dexample.co... |  ✉ william@example.c... |
+	|  ☎  n/a                 |  ☎  +1 507 555 1234     |  ☎  +1 646 555 5678     |  ☎  +1 330 555 5678     |
+	|  ☏  +1 902 555 1234     |  ☏  +1 208 555 5678     |  ☏  +1 954 555 5678     |  ☏  +1 305 555 1234     |
+	| Edward Teach            |                         |                         | Samuel Bellamy          |
+	|  ⏰ 03:43:57 PM         |                         |                         |  ⏰ 12:43:57 PM         |
+	|  ✉ edward@example.co... |                         |                         |  ✉ sam@example.com      |
+	|  ☎  n/a                 |                         |                         |  ☎  +1 347 535 1234     |
+	|  ☏  +1 731 555 1234     |                         |                         |  ☏  +1 994 555 5678     |
 	+-------------------------+-------------------------+-------------------------+-------------------------+
+
+## Using Custom Configuration
+
+You can also create custom configuration files and use them to see grouped contacts.  For example, he's how you
+can view the local time for a 'science team.'
+
+	$ timezoner -f ./science-team.cfg
+	+--[ 01:03:26 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Feynman                     ✉ feynman@science.com        ☎  +1 347 535 1234     ☏  +1 994 555 5678     |
+	+--[ 02:03:26 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Oppenheimer                 ✉ oppenheimer@science.com    ☎  n/a                 ☏  +1 731 555 1234     |
+	+--[ 04:03:26 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Einstein                    ✉ einstein@science.com       ☎  +1 646 555 5678     ☏  +1 954 555 5678     |
+	+--[ 09:03:26 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Heisenberg                  ✉ heisenberg@science.com     ☎  +1 330 555 5678     ☏  +1 305 555 1234     |
+	| Dr. Planck                      ✉ planck@science.com         ☎  n/a                 ☏  +1 902 555 1234     |
+	+------------------------------------------------------------------------------------------------------------+
+
+## Modeling Timezone Differences Using Specific Time
+
+Sometimes you want to see what time it will be in other timezones at a specific local time.  You can do exactly this
+with the '-t' option.
+
+	$ timezoner -t "3:00 pm"
+	+--[ 12:00:00 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Feynman                     ✉ feynman@science.com        ☎  +1 347 535 1234     ☏  +1 994 555 5678     |
+	+--[ 01:00:00 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Oppenheimer                 ✉ oppenheimer@science.com    ☎  n/a                 ☏  +1 731 555 1234     |
+	+--[ 03:00:00 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Einstein                    ✉ einstein@science.com       ☎  +1 646 555 5678     ☏  +1 954 555 5678     |
+	+--[ 08:00:00 PM ]-------------------------------------------------------------------------------------------+
+	| Dr. Heisenberg                  ✉ heisenberg@science.com     ☎  +1 330 555 5678     ☏  +1 305 555 1234     |
+	| Dr. Planck                      ✉ planck@science.com         ☎  n/a                 ☏  +1 902 555 1234     |
+	+------------------------------------------------------------------------------------------------------------+
 
 ## License
 
