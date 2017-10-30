@@ -686,9 +686,9 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 		                                "[[:space:]]+"
 		                                "\"(.*)\"" /* group 3: name */
 		                                "[[:space:]]+"
-		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\"" /* group 4: office number */
+		                                "\"(.*)\"" /* group 4: office number */
 		                                "[[:space:]]+"
-		                                "\"(\\+?[-\\(\\)/[:alnum:][:space:]]*)\""; /* group 5: mobile number */
+		                                "\"(.*)\""; /* group 5: mobile number */
 		regex_t regex;
 		int regex_comp_result = regcomp( &regex, CONFIG_LINE_REGEX, REG_EXTENDED | REG_ICASE);
 
