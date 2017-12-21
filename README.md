@@ -8,7 +8,7 @@ Timezoner will create a default configuration under your user's home directory (
 does not already exist.  The configuration file is structured with several fields that are
 separated with whitespace. The fields are:
 
-* The IANA timezone code.  The second field is
+* The IANA timezone code.
 * The email address of the contact wrapped in double-quotes.
 * The full name of the contact wrapped in double-quotes.
 * The office phone number of the contact wrapped in double-quotes.
