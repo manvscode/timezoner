@@ -308,6 +308,18 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 	}
 
 	bool first = true;
+    const char * p;
+    int charcount = 0;
+    int max_name_size         = 25;
+    int name_field            = 30;
+    int max_email_size        = 23;
+    int email_field           = 25;
+    int max_office_phone_size = 17;
+    int office_phone_field    = 19;
+    int max_mobile_phone_size = 17;
+    int mobile_phone_field    = 19;
+
+    int total_field_size = name_field + email_field + office_phone_field + mobile_phone_field;
 
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 	     itr != lc_tree_map_end( );
@@ -334,7 +346,7 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 		console_reset( stdout );
 
 		printf( " \u251c" );
-		int count = 90;
+		int count = total_field_size - 5;
 		while( count-- > 0 )
 		{
 			printf( "\u2500" );
@@ -356,54 +368,84 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			printf( "\u2502 " );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-			if( strlen(contact->name) > 30)
+
+            // Print character at a time to account for UTF-8 edges
+            for (charcount = 0, p = contact->name; *p != 0; ++p) {
+                printf( "%c", *p);
+                charcount++;
+                // If a continuation, do not count as a printed character
+                if ((*p & 0xc0) == 0x80) {
+                    charcount--;
+                }
+                // If we have printed enough characters, and not in the middle of a UTF-8 char, leave early
+                if (charcount >= max_name_size && ( ((*p & 0xc0) == 0x80) || ((*(p+1) & 0xc0) != 0x80))) {
+                    break;
+                }
+            }
+            // If we left early, add some dots to indicate a truncation
+            if (*p != 0) {
+                printf( "...");
+                charcount += 3;
+            }
+            // Pad out the field as needed
+            while (charcount <= name_field) {
+                printf( " ");
+                charcount++;
+            }
+            console_reset( stdout );
+
+			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+
+            // Envelope symbol
+			printf( "%lc ", (wchar_t) 0x2709);
+            // Print character at a time to account for UTF-8 edges
+            for (charcount = 0, p = contact->email; *p != 0; ++p) {
+                printf( "%c", *p);
+                charcount++;
+                // If a continuation, do not count as a printed character
+                if ((*p & 0xc0) == 0x80) {
+                    charcount--;
+                }
+                // If we have printed enough characters, and not in the middle of a UTF-8 char, leave early
+                if (charcount >= max_email_size && ( ((*p & 0xc0) == 0x80) || ((*(p+1) & 0xc0) != 0x80))) {
+                    break;
+                }
+            }
+            // If we left early, add some dots to indicate a truncation
+            if (*p != 0) {
+                printf( "...");
+                charcount += 3;
+            }
+            // Pad out the field as needed
+            while (charcount <= email_field) {
+                printf( " ");
+                charcount++;
+            }
+			console_reset( stdout );
+
+			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+			if( strlen(contact->office_phone) > max_office_phone_size)
 			{
 				// truncated
-				printf( "%-.*s...  ", 27, contact->name );
+				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, max_office_phone_size, contact->office_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "%-*s  ", 30, contact->name );
+				printf( "%lc  %-*s ", (wchar_t) 0x260e, office_phone_field, contact->office_phone );
 			}
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->email) > 23)
+			if( strlen(contact->mobile_phone) > max_mobile_phone_size)
 			{
 				// truncated
-				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, 23, contact->email );
+				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, max_mobile_phone_size, contact->mobile_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "%lc %-*s  ", (wchar_t) 0x2709, 25, contact->email );
-			}
-			console_reset( stdout );
-
-			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->office_phone) > 17)
-			{
-				// truncated
-				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, 17, contact->office_phone );
-			}
-			else
-			{
-				// fixed width
-				printf( "%lc  %-*s ", (wchar_t) 0x260e, 19, contact->office_phone );
-			}
-			console_reset( stdout );
-
-			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->mobile_phone) > 17)
-			{
-				// truncated
-				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
-			}
-			else
-			{
-				// fixed width
-				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
+				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, mobile_phone_field, contact->mobile_phone );
 			}
 			console_reset( stdout );
 
@@ -412,9 +454,8 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 	} // for
 
 
-
 	printf( "\u2514" );
-	int count = 107;
+	int count = total_field_size + 12;
 	while( count-- > 0 )
 	{
 		printf( "\u2500" );
