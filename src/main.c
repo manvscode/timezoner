@@ -37,7 +37,8 @@
 #include <libcollections/vector.h>
 #include <libcollections/tree-map.h>
 
-#define VERSION "1.0"
+#define VERSION                 "1.0"
+#define CONFIGURATION_FILENAME  ".timezoner"
 
 typedef struct timezone_contact {
 	double utc_offset;
@@ -235,7 +236,7 @@ void about( int argc, char* argv[] )
 	const char *homedir = pw->pw_dir;
 
 	char configuration_filename[ PATH_MAX ];
-	snprintf( configuration_filename, sizeof(configuration_filename), "%s/.timezoner", homedir );
+	snprintf( configuration_filename, sizeof(configuration_filename), "%s/%s", homedir, CONFIGURATION_FILENAME );
 	configuration_filename[ sizeof(configuration_filename) - 1 ] = '\0';
 
 	printf( "This program expects a configuration file under \"%s\"\n", configuration_filename );
@@ -735,7 +736,7 @@ bool read_configuration_from_home( timezone_contact_t** contacts )
 	const char *homedir = pw->pw_dir;
 
 	char configuration_filename[ PATH_MAX ];
-	snprintf( configuration_filename, sizeof(configuration_filename), "%s/.timezoner", homedir );
+	snprintf( configuration_filename, sizeof(configuration_filename), "%s/%s", homedir, CONFIGURATION_FILENAME );
 	configuration_filename[ sizeof(configuration_filename) - 1 ] = '\0';
 
 	if( file_exists( configuration_filename ) )

@@ -4,7 +4,7 @@
 
 ## Configuration
 
-Timezoner will create a default configuration under your user's home directory (~/.timzoner) if one
+Timezoner will create a default configuration under your user's home directory (~/.timezoner) if one
 does not already exist.  The configuration file is structured with several fields that are
 separated with whitespace. The fields are:
 
