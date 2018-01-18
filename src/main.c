@@ -60,7 +60,7 @@ static bool timezone_map_element_destroy ( void *p_key, void *p_value );
 static int  timezone_map_compare ( const void *p_key_left, const void *p_key_right );
 static int  contact_name_compare ( const void *l, const void *r );
 static bool check_alloc( void* mem );
-static void display_time_grouping ( lc_tree_map_t* map, time_t now );
+static void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
 static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
 static size_t mb_strlen(const char* utf8);
 static size_t mb_size_at_char(const char* utf8, int character);
@@ -69,6 +69,7 @@ static size_t mb_size_at_char(const char* utf8, int character);
 int main( int argc, char* argv[] )
 {
 	bool organize_by_time = 1; // this is the default
+	int column_widths[ 2 ] = { 30, 25 };
 	const char* config_filename = NULL;
 	time_t now = time(NULL);
 
@@ -83,6 +84,26 @@ int main( int argc, char* argv[] )
 			if( strcmp( "-T", argv[arg] ) == 0 || strcmp( "--group-time", argv[arg] ) == 0 )
 			{
 				organize_by_time = true;
+
+				if( (arg + 1) < argc )
+				{
+					if( *argv[ arg + 1 ] != '-' )
+					{
+						column_widths[ 0 ] = atoi( argv[ arg + 1 ] );
+					}
+
+					arg += 1;
+				}
+
+				if( (arg + 1) < argc )
+				{
+					if( *argv[ arg + 1 ] != '-' )
+					{
+						column_widths[ 1 ] = atoi( argv[ arg + 1 ] );
+					}
+
+					arg += 1;
+				}
 			}
 			else if( strcmp( "-U", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
 			{
@@ -202,7 +223,7 @@ int main( int argc, char* argv[] )
 
 	if( organize_by_time )
 	{
-		display_time_grouping( &map, now );
+		display_time_grouping( &map, now, column_widths[0], column_widths[1] );
 	}
 	else
 	{
@@ -248,7 +269,7 @@ void about( int argc, char* argv[] )
 	printf( "Command Line Options:\n" );
 	printf( "    %-2s, %-20s  %-50s\n", "-f", "--file", "Use a specific configuration file." );
 	printf( "    %-2s, %-20s  %-50s\n", "-t", "--time", "Use a specific time." );
-	printf( "    %-2s, %-20s  %-50s\n", "-T", "--group-time", "Group contacts by time." );
+	printf( "    %-2s, %-20s  %-50s\n", "-T", "--group-time", "Group contacts by time. Two optional arguments for the column widths is possible." );
 	printf( "    %-2s, %-20s  %-50s\n", "-U", "--group-utc-offset", "Group contacts by UTC offset." );
 	printf( "\n" );
 }
@@ -303,8 +324,18 @@ void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time
 	}
 }
 
-void display_time_grouping( lc_tree_map_t* map, time_t now )
+void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width )
 {
+	if( name_width < 10 )
+	{
+		name_width = 10;
+	}
+
+	if( email_width < 10 )
+	{
+		email_width = 10;
+	}
+
 	if( lc_tree_map_size( map ) == 0 )
 	{
 		return;
@@ -337,7 +368,7 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 		console_reset( stdout );
 
 		printf( " \u251c" );
-		int count = 90;
+		int count = 35 + name_width + email_width;
 		while( count-- > 0 )
 		{
 			printf( "\u2500" );
@@ -359,37 +390,38 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			printf( "\u2502 " );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-			if( mb_strlen(contact->name) > 30)
+			if( mb_strlen(contact->name) > name_width)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->name, 27);
+				int size = mb_size_at_char(contact->name, name_width - 3);
 				printf( "%-.*s...  ", size, contact->name );
 			}
 			else
 			{
 				// fixed width
 				int len_diff = strlen(contact->name) - mb_strlen(contact->name);
-				int size = mb_size_at_char(contact->name, 30);
-				if( size <= 30 ) size = 30 + len_diff;
-				else size = 30;
+				int size = mb_size_at_char(contact->name, name_width);
+				if( size <= name_width ) size = name_width + len_diff;
+				else size = name_width;
 				printf( "%-*s  ", size, contact->name );
 			}
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( mb_strlen(contact->email) > 25)
+			if( mb_strlen(contact->email) > email_width)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->email, 22);
+				int size = mb_size_at_char(contact->email, email_width - 3);
 				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, size, contact->email );
 			}
 			else
 			{
 				// fixed width
 				int len_diff = strlen(contact->email) - mb_strlen(contact->email);
-				int size = mb_size_at_char(contact->email, 25);
-				if( size <= 25 ) size = 25 + len_diff;
-				else size = 25;
+				int size = mb_size_at_char(contact->email, email_width);
+				//printf( "\n%d %d\n", len_diff, size );
+				if( size <= email_width ) size = email_width + len_diff;
+				else size = email_width;
 				printf( "%lc %-*s  ", (wchar_t) 0x2709, size, contact->email );
 			}
 			console_reset( stdout );
@@ -437,7 +469,7 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 
 
 	printf( "\u2514" );
-	int count = 107;
+	int count = 52 + name_width + email_width;
 	while( count-- > 0 )
 	{
 		printf( "\u2500" );
