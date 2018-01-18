@@ -62,6 +62,8 @@ static int  contact_name_compare ( const void *l, const void *r );
 static bool check_alloc( void* mem );
 static void display_time_grouping ( lc_tree_map_t* map, time_t now );
 static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
+static size_t mb_strlen(const char* utf8);
+static size_t mb_size_at_char(const char* utf8, int character);
 
 
 int main( int argc, char* argv[] )
@@ -357,54 +359,74 @@ void display_time_grouping( lc_tree_map_t* map, time_t now )
 			printf( "\u2502 " );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-			if( strlen(contact->name) > 30)
+			if( mb_strlen(contact->name) > 30)
 			{
 				// truncated
-				printf( "%-.*s...  ", 27, contact->name );
+				int size = mb_size_at_char(contact->name, 27);
+				printf( "%-.*s...  ", size, contact->name );
 			}
 			else
 			{
 				// fixed width
-				printf( "%-*s  ", 30, contact->name );
+				int len_diff = strlen(contact->name) - mb_strlen(contact->name);
+				int size = mb_size_at_char(contact->name, 30);
+				if( size <= 30 ) size = 30 + len_diff;
+				else size = 30;
+				printf( "%-*s  ", size, contact->name );
 			}
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->email) > 23)
+			if( mb_strlen(contact->email) > 25)
 			{
 				// truncated
-				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, 23, contact->email );
+				int size = mb_size_at_char(contact->email, 22);
+				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, size, contact->email );
 			}
 			else
 			{
 				// fixed width
-				printf( "%lc %-*s  ", (wchar_t) 0x2709, 25, contact->email );
+				int len_diff = strlen(contact->email) - mb_strlen(contact->email);
+				int size = mb_size_at_char(contact->email, 25);
+				if( size <= 25 ) size = 25 + len_diff;
+				else size = 25;
+				printf( "%lc %-*s  ", (wchar_t) 0x2709, size, contact->email );
 			}
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->office_phone) > 17)
+			if( mb_strlen(contact->office_phone) > 19)
 			{
 				// truncated
-				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, 17, contact->office_phone );
+				int size = mb_size_at_char(contact->office_phone, 16);
+				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, size, contact->office_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "%lc  %-*s ", (wchar_t) 0x260e, 19, contact->office_phone );
+				int len_diff = strlen(contact->office_phone) - mb_strlen(contact->office_phone);
+				int size = mb_size_at_char(contact->office_phone, 19);
+				if( size <= 19 ) size = 19 + len_diff;
+				else size = 19;
+				printf( "%lc  %-*s ", (wchar_t) 0x260e, size, contact->office_phone );
 			}
 			console_reset( stdout );
 
 			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( strlen(contact->mobile_phone) > 17)
+			if( mb_strlen(contact->mobile_phone) > 19)
 			{
 				// truncated
-				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
+				int size = mb_size_at_char(contact->mobile_phone, 16);
+				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
 			}
 			else
 			{
 				// fixed width
-				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
+				int len_diff = strlen(contact->mobile_phone) - mb_strlen(contact->mobile_phone);
+				int size = mb_size_at_char(contact->mobile_phone, 19);
+				if( size <= 19 ) size = 19 + len_diff;
+				else size = 19;
+				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
 			}
 			console_reset( stdout );
 
@@ -516,15 +538,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				timezone_contact_t* contact = lc_vector_last(list);
 
 				console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-				if( strlen(contact->name) > 23)
+				if( mb_strlen(contact->name) > 23)
 				{
 					// truncated
-					printf( " %-.*s... ", 20, contact->name );
+					int size = mb_size_at_char(contact->name, 20);
+					printf( " %-.*s... ", size, contact->name );
 				}
 				else
 				{
 					// fixed width
-					printf( " %-*s ", 23, contact->name );
+					int len_diff = strlen(contact->name) - mb_strlen(contact->name);
+					int size = mb_size_at_char(contact->name, 23);
+					if( size <= 23 ) size = 23 + len_diff;
+					else size = 23;
+					printf( " %-*s ", size, contact->name );
 				}
 				console_reset( stdout );
 			}
@@ -577,15 +604,21 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
 
-				if( strlen(contact->email) > 17)
+				if( mb_strlen(contact->email) > 20)
 				{
 					// truncated
-					printf( "  \u2709 %-.*s... ", 17, contact->email );
+					int size = mb_size_at_char(contact->email, 17);
+					printf( "  %lc %-.*s... ", (wchar_t) 0x2709, size, contact->email );
 				}
 				else
 				{
 					// fixed width
-					printf( "  \u2709 %-*s ", 20, contact->email );
+					int len_diff = strlen(contact->email) - mb_strlen(contact->email);
+
+					int size = mb_size_at_char(contact->email, 20);
+					if( size <= 20 ) size = 20 + len_diff;
+					else size = 20;
+					printf( "  %lc %-*s ", (wchar_t) 0x2709, size, contact->email );
 				}
 				console_reset( stdout );
 			}
@@ -608,15 +641,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				timezone_contact_t* contact = lc_vector_last(list);
 
 				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-				if( strlen(contact->office_phone) > 17)
+				if( mb_strlen(contact->office_phone) > 17)
 				{
 					// truncated
-					printf( "  \u260E  %-.*s... ", 17, contact->office_phone );
+					int size = mb_size_at_char(contact->office_phone, 17);
+					printf( "  \u260E  %-.*s... ", size, contact->office_phone );
 				}
 				else
 				{
 					// fixed width
-					printf( "  \u260E  %-*s ", 19, contact->office_phone );
+					int len_diff = strlen(contact->office_phone) - mb_strlen(contact->office_phone);
+					int size = mb_size_at_char(contact->office_phone, 19);
+					if( size <= 19 ) size = 19 + len_diff;
+					else size = 19;
+					printf( "  \u260E  %-*s ", size, contact->office_phone );
 				}
 				console_reset( stdout );
 			}
@@ -640,15 +678,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				timezone_contact_t* contact = lc_vector_last(list);
 
 				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-				if( strlen(contact->mobile_phone) > 17)
+				if( mb_strlen(contact->mobile_phone) > 17)
 				{
 					// truncated
-					printf( "   %lc%-.*s ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
+					int size = mb_size_at_char(contact->mobile_phone, 17);
+					printf( "   %lc%-.*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
 				}
 				else
 				{
 					// fixed width
-					printf( "   %lc%-*s ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
+					int len_diff = strlen(contact->mobile_phone) - mb_strlen(contact->mobile_phone);
+					int size = mb_size_at_char(contact->mobile_phone, 19);
+					if( size <= 19 ) size = 19 + len_diff;
+					else size = 19;
+					printf( "   %lc%-*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
 				}
 				console_reset( stdout );
 				printf("\u2502");
@@ -907,7 +950,7 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 				.email        = email,
 				.name         = name,
 				.office_phone = office_phone,
-				.mobile_phone = mobile_phone,
+				.mobile_phone = mobile_phone
 			};
 			lc_vector_push( *contacts, contact );
 		}
@@ -1014,4 +1057,44 @@ bool check_alloc( void* mem )
 	}
 
 	return result;
+}
+size_t mb_strlen(const char* utf8)
+{
+	size_t len = 0;
+	while(*utf8)
+	{
+		int i = mblen(utf8, 2);
+		if( i > 0 )
+		{
+			len += 1;
+			utf8 += i;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return len;
+}
+
+size_t mb_size_at_char(const char* utf8, int character)
+{
+	size_t size = 0;
+	int i = 0;
+
+	while(*utf8 && i < character)
+	{
+		int cnt = mblen(utf8, 2);
+		if( cnt > 0 )
+		{
+			size += cnt;
+			utf8 += cnt;
+			i += 1;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return size;
 }
