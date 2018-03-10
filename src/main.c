@@ -43,10 +43,10 @@
 typedef struct timezone_contact {
 	double utc_offset;
 	const char* timezone; /* IANA Timezone Code; https://en.wikipedia.org/wiki/List_of_tz_database_time_zones */
-	const char* email;
-	const char* name;
-	const char* office_phone;
-	const char* mobile_phone;
+	const wchar_t* email;
+	const wchar_t* name;
+	const wchar_t* office_phone;
+	const wchar_t* mobile_phone;
 } timezone_contact_t;
 
 
@@ -62,8 +62,6 @@ static int  contact_name_compare ( const void *l, const void *r );
 static bool check_alloc( void* mem );
 static void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
 static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
-static size_t mb_strlen(const char* utf8);
-static size_t mb_size_at_char(const char* utf8, int character);
 
 
 int main( int argc, char* argv[] )
@@ -117,9 +115,9 @@ int main( int argc, char* argv[] )
 				}
 				else
 				{
-					console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+					wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 					fprintf( stderr, "ERROR: " );
-					console_reset( stderr );
+					wconsole_reset( stderr );
 					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
 					return -2;
 				}
@@ -163,18 +161,18 @@ int main( int argc, char* argv[] )
 					}
 					else
 					{
-						console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+						wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 						fprintf( stderr, "ERROR: " );
-						console_reset( stderr );
+						wconsole_reset( stderr );
 						fprintf( stderr, "Failed to match time for '%s'\n", argv[arg + 1] );
 						return -2;
 					}
 				}
 				else
 				{
-					console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+					wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 					fprintf( stderr, "ERROR: " );
-					console_reset( stderr );
+					wconsole_reset( stderr );
 					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
 					return -2;
 				}
@@ -187,9 +185,9 @@ int main( int argc, char* argv[] )
 			}
 			else
 			{
-				console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+				wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 				fprintf( stderr, "ERROR: " );
-				console_reset( stderr );
+				wconsole_reset( stderr );
 				fprintf( stderr, "Unrecognized command line option '%s'\n", argv[arg] );
 				return -2;
 			}
@@ -351,132 +349,109 @@ void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int
 
 		if( first )
 		{
-			printf( "\u250c\u2500\u2500\u2524 " );
+			wprintf( L"\u250c\u2500\u2500\u2524 " );
 		}
 		else
 		{
-			printf( "\u251c\u2500\u2500\u2524 " );
+			wprintf( L"\u251c\u2500\u2500\u2524 " );
 		}
-		console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
+		wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
 
 
 		struct tm* tz_time = time_local( now, list[0]->timezone );
 		char time_str[ 32 ];
 		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
 
-		printf( "%s", time_str );
-		console_reset( stdout );
+		wprintf( L"%s", time_str );
+		wconsole_reset( stdout );
 
-		printf( " \u251c" );
+		wprintf( L" \u251c" );
 		int count = 35 + name_width + email_width;
 		while( count-- > 0 )
 		{
-			printf( "\u2500" );
+			wprintf( L"\u2500" );
 		}
 		if( first )
 		{
-			printf( "\u2510\n" );
+			wprintf( L"\u2510\n" );
 			first = false;
 		}
 		else
 		{
-			printf( "\u2524\n" );
+			wprintf( L"\u2524\n" );
 		}
 
 		for( int i = 0; i < lc_vector_size(list); i++ )
 		{
 			timezone_contact_t* contact = list[ i ];
 
-			printf( "\u2502 " );
+			wprintf( L"\u2502 " );
 
-			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-			if( mb_strlen(contact->name) > name_width)
+			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
+			if( wcslen(contact->name) > name_width)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->name, name_width - 3);
-				printf( "%-.*s...  ", size, contact->name );
+				wprintf( L"%-.*ls...  ", name_width - 3, contact->name );
 			}
 			else
 			{
 				// fixed width
-				int len_diff = strlen(contact->name) - mb_strlen(contact->name);
-				int size = mb_size_at_char(contact->name, name_width);
-				if( size <= name_width ) size = name_width + len_diff;
-				else size = name_width;
-				printf( "%-*s  ", size, contact->name );
+				wprintf( L"%-*ls  ", name_width, contact->name );
 			}
-			console_reset( stdout );
+			wconsole_reset( stdout );
 
-			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( mb_strlen(contact->email) > email_width)
+			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+			if( wcslen(contact->email) > email_width)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->email, email_width - 3);
-				printf( "%lc %-.*s...  ", (wchar_t) 0x2709, size, contact->email );
+				wprintf( L"%lc %-.*ls...  ", (wchar_t) 0x2709, email_width - 3, contact->email );
 			}
 			else
 			{
 				// fixed width
-				int len_diff = strlen(contact->email) - mb_strlen(contact->email);
-				int size = mb_size_at_char(contact->email, email_width);
-				//printf( "\n%d %d\n", len_diff, size );
-				if( size <= email_width ) size = email_width + len_diff;
-				else size = email_width;
-				printf( "%lc %-*s  ", (wchar_t) 0x2709, size, contact->email );
+				wprintf( L"%lc %-*ls  ", (wchar_t) 0x2709, email_width, contact->email );
 			}
-			console_reset( stdout );
+			wconsole_reset( stdout );
 
-			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( mb_strlen(contact->office_phone) > 19)
+			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+			if( wcslen(contact->office_phone) > 19)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->office_phone, 16);
-				printf( "%lc  %-.*s... ", (wchar_t) 0x260e, size, contact->office_phone );
+				wprintf( L"%lc  %-.*ls... ", (wchar_t) 0x260e, 16, contact->office_phone );
 			}
 			else
 			{
 				// fixed width
-				int len_diff = strlen(contact->office_phone) - mb_strlen(contact->office_phone);
-				int size = mb_size_at_char(contact->office_phone, 19);
-				if( size <= 19 ) size = 19 + len_diff;
-				else size = 19;
-				printf( "%lc  %-*s ", (wchar_t) 0x260e, size, contact->office_phone );
+				wprintf( L"%lc  %-*ls ", (wchar_t) 0x260e, 19, contact->office_phone );
 			}
-			console_reset( stdout );
+			wconsole_reset( stdout );
 
-			console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-			if( mb_strlen(contact->mobile_phone) > 19)
+			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+			if( wcslen(contact->mobile_phone) > 19)
 			{
 				// truncated
-				int size = mb_size_at_char(contact->mobile_phone, 16);
-				printf( "%lc%-.*s... ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
+				wprintf( L"%lc%-.*ls... ", (wchar_t) 0x1f4f1, 16, contact->mobile_phone );
 			}
 			else
 			{
 				// fixed width
-				int len_diff = strlen(contact->mobile_phone) - mb_strlen(contact->mobile_phone);
-				int size = mb_size_at_char(contact->mobile_phone, 19);
-				if( size <= 19 ) size = 19 + len_diff;
-				else size = 19;
-				printf( "%lc%-*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
+				wprintf( L"%lc%-*ls ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 			}
-			console_reset( stdout );
+			wconsole_reset( stdout );
 
-			printf( "\u2502\n" );
+			wprintf( L"\u2502\n" );
 		} // for
 	} // for
 
 
 
-	printf( "\u2514" );
+	wprintf( L"\u2514" );
 	int count = 52 + name_width + email_width;
 	while( count-- > 0 )
 	{
-		printf( "\u2500" );
+		wprintf( L"\u2500" );
 	}
-	printf( "\u2518\n" );
-
-	//printf( "+-----------------------------------------------------------------------------------------------------------+\n" );
+	wprintf( L"\u2518\n" );
 }
 
 void display_utc_grouping( lc_tree_map_t* map, time_t now )
@@ -490,7 +465,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 	// start of headers
 	{
-		printf("\u250c");
+		wprintf( L"\u250c" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -498,22 +473,22 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			int column_width = 25;
 			while( column_width-- > 0 )
 			{
-				printf( "\u2500" );
+				wprintf( L"\u2500" );
 			}
 
 			if( itr == last_node )
 			{
-				printf( "\u2510" );
+				wprintf( L"\u2510" );
 			}
 			else
 			{
-				printf( "\u252c" );
+				wprintf( L"\u252c" );
 			}
 
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -521,14 +496,14 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			timezone_contact_t** list = itr->value;
 			timezone_contact_t* contact = lc_vector_last(list);
 
-			console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA );
-			printf( "        UTC%s         ", (const char*) itr->key );
-			console_reset( stdout );
-			printf("\u2502");
+			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA );
+			wprintf( L"        UTC%s         ", (const char*) itr->key );
+			wconsole_reset( stdout );
+			wprintf( L"\u2502" );
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u251c");
+		wprintf( L"\u251c" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -536,20 +511,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			int column_width = 25;
 			while( column_width-- > 0 )
 			{
-				printf( "\u2500" );
+				wprintf( L"\u2500" );
 			}
 
 			if( itr == last_node )
 			{
-				printf( "\u2524" );
+				wprintf( L"\u2524" );
 			}
 			else
 			{
-				printf( "\u253c" );
+				wprintf( L"\u253c" );
 			}
 
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
 
 	} // end of headers
@@ -559,7 +534,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 	while( timezone_count > 0 )
 	{
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -569,33 +544,28 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
-				if( mb_strlen(contact->name) > 23)
+				wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_CYAN);
+				if( wcslen(contact->name) > 23)
 				{
 					// truncated
-					int size = mb_size_at_char(contact->name, 20);
-					printf( " %-.*s... ", size, contact->name );
+					wprintf( L" %-.*ls... ", 20, contact->name );
 				}
 				else
 				{
 					// fixed width
-					int len_diff = strlen(contact->name) - mb_strlen(contact->name);
-					int size = mb_size_at_char(contact->name, 23);
-					if( size <= 23 ) size = 23 + len_diff;
-					else size = 23;
-					printf( " %-*s ", size, contact->name );
+					wprintf( L" %-*ls ", 23, contact->name );
 				}
-				console_reset( stdout );
+				wconsole_reset( stdout );
 			}
 			else
 			{
-				printf( " %-23s ", "" );
+				wprintf( L" %-23s ", "" );
 			}
-			printf("\u2502");
+			wprintf( L"\u2502" );
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -612,19 +582,19 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
 				time_str[ sizeof(time_str) - 1 ] = '\0';
 
-				console_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
-				printf( "  \u23f0 %-*s ", 19, time_str );
-				console_reset( stdout );
+				wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_YELLOW);
+				wprintf( L"  \u23f0 %-*s ", 19, time_str );
+				wconsole_reset( stdout );
 			}
 			else
 			{
-				printf( "%-24s ", "" );
+				wprintf( L"%-24s ", "" );
 			}
-			printf("\u2502");
+			wprintf( L"\u2502" );
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -634,35 +604,29 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+				wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
 
-				if( mb_strlen(contact->email) > 20)
+				if( wcslen(contact->email) > 20)
 				{
 					// truncated
-					int size = mb_size_at_char(contact->email, 17);
-					printf( "  %lc %-.*s... ", (wchar_t) 0x2709, size, contact->email );
+					wprintf( L"  %lc %-.*ls... ", (wchar_t) 0x2709, 17, contact->email );
 				}
 				else
 				{
 					// fixed width
-					int len_diff = strlen(contact->email) - mb_strlen(contact->email);
-
-					int size = mb_size_at_char(contact->email, 20);
-					if( size <= 20 ) size = 20 + len_diff;
-					else size = 20;
-					printf( "  %lc %-*s ", (wchar_t) 0x2709, size, contact->email );
+					wprintf( L"  %lc %-*ls ", (wchar_t) 0x2709, 20, contact->email );
 				}
-				console_reset( stdout );
+				wconsole_reset( stdout );
 			}
 			else
 			{
-				printf( "%-24s ", "" );
+				wprintf( L"%-24s ", "" );
 			}
-			printf("\u2502");
+			wprintf( L"\u2502" );
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -672,34 +636,29 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-				if( mb_strlen(contact->office_phone) > 17)
+				wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+				if( wcslen(contact->office_phone) > 17)
 				{
 					// truncated
-					int size = mb_size_at_char(contact->office_phone, 17);
-					printf( "  \u260E  %-.*s... ", size, contact->office_phone );
+					wprintf( L"  \u260E  %-.*ls... ", 17, contact->office_phone );
 				}
 				else
 				{
 					// fixed width
-					int len_diff = strlen(contact->office_phone) - mb_strlen(contact->office_phone);
-					int size = mb_size_at_char(contact->office_phone, 19);
-					if( size <= 19 ) size = 19 + len_diff;
-					else size = 19;
-					printf( "  \u260E  %-*s ", size, contact->office_phone );
+					wprintf( L"  \u260E  %-*ls ", 19, contact->office_phone );
 				}
-				console_reset( stdout );
+				wconsole_reset( stdout );
 			}
 			else
 			{
-				printf( "%-24s ", "" );
+				wprintf( L"%-24s ", "" );
 			}
 
-			printf("\u2502");
+			wprintf( L"\u2502" );
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
-		printf("\u2502");
+		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -709,32 +668,27 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				console_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
-				if( mb_strlen(contact->mobile_phone) > 17)
+				wconsole_fg_color_256( stdout, CONSOLE_COLOR256_GREY_15);
+				if( wcslen(contact->mobile_phone) > 17)
 				{
 					// truncated
-					int size = mb_size_at_char(contact->mobile_phone, 17);
-					printf( "   %lc%-.*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
+					wprintf( L"   %lc%-.*ls ", (wchar_t) 0x1f4f1, 17, contact->mobile_phone );
 				}
 				else
 				{
 					// fixed width
-					int len_diff = strlen(contact->mobile_phone) - mb_strlen(contact->mobile_phone);
-					int size = mb_size_at_char(contact->mobile_phone, 19);
-					if( size <= 19 ) size = 19 + len_diff;
-					else size = 19;
-					printf( "   %lc%-*s ", (wchar_t) 0x1f4f1, size, contact->mobile_phone );
+					wprintf( L"   %lc%-*ls ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 				}
-				console_reset( stdout );
-				printf("\u2502");
+				wconsole_reset( stdout );
+				wprintf( L"\u2502" );
 			}
 			else
 			{
-				printf( "%-24s ", "" );
-				printf("\u2502");
+				wprintf( L"%-24s ", "" );
+				wprintf( L"\u2502" );
 			}
 		} // for
-		printf("\n");
+		wprintf( L"\n" );
 
 
 
@@ -765,7 +719,7 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 	// start of footer
 	{
-		printf("\u2514");
+		wprintf( L"\u2514" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
@@ -773,31 +727,20 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 			int column_width = 25;
 			while( column_width-- > 0 )
 			{
-				printf( "\u2500" );
+				wprintf( L"\u2500" );
 			}
 
 			if( itr == last_node )
 			{
-				printf( "\u2518" );
+				wprintf( L"\u2518" );
 			}
 			else
 			{
-				printf( "\u2534" );
+				wprintf( L"\u2534" );
 			}
 
 		} // for
-		printf("\n");
-
-		/*
-		printf("+");
-		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
-		{
-			printf( "-------------------------+" );
-		} // for
-		printf("\n");
-		*/
+		wprintf( L"\n" );
 	} // end of footer
 
 	lc_tree_map_clear( map );
@@ -818,9 +761,9 @@ bool read_configuration_from_home( timezone_contact_t** contacts )
 	{
 		if( !configuration_read( configuration_filename, contacts ) )
 		{
-			console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 			fprintf( stderr, "ERROR: " );
-			console_reset( stderr );
+			wconsole_reset( stderr );
 			fprintf( stderr, "Unable to read configuration at '%s'\n", configuration_filename );
 			result = false;
 			goto done;
@@ -830,9 +773,9 @@ bool read_configuration_from_home( timezone_contact_t** contacts )
 	{
 		if( !configuration_write_default( configuration_filename ) )
 		{
-			console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 			fprintf( stderr, "ERROR: " );
-			console_reset( stderr );
+			wconsole_reset( stderr );
 			fprintf( stderr, "Failed to create '%s'.\n", configuration_filename );
 			result = false;
 			goto done;
@@ -866,9 +809,9 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 
 		if( regex_comp_result )
 		{
-			console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 			fprintf( stderr, "ERROR: " );
-			console_reset( stderr );
+			wconsole_reset( stderr );
 			fprintf( stderr, "Unable to compile regular expression.\n" );
 			result = false;
 		}
@@ -884,9 +827,9 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 					if( strchr(line, '\n') == NULL )
 					{
 						// Check for lines longer than we can support.
-						console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+						wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 						fprintf( stderr, "ERROR: " );
-						console_reset( stderr );
+						wconsole_reset( stderr );
 						fprintf( stderr, "Line exceeds maximum possible length of %zu.\n", sizeof(line) );
 
 						result = false;
@@ -921,10 +864,10 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 {
 	char* tz_string = NULL;
 
-	char* email = NULL;
-	char* name = NULL;
-	char* office_phone = NULL;
-	char* mobile_phone = NULL;
+	wchar_t* email = NULL;
+	wchar_t* name = NULL;
+	wchar_t* office_phone = NULL;
+	wchar_t* mobile_phone = NULL;
 
 	if( line[0] == '#' )
 	{
@@ -951,27 +894,27 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 			tz_string[ tz_string_len ] = '\0';
 
 			size_t email_len = matches[ 2 ].rm_eo - matches[ 2 ].rm_so;
-			email = malloc( email_len + 1 );
+			email = malloc( sizeof(wchar_t) * (email_len + 1) );
 			if( !check_alloc(email) ) goto line_read_failed;
-			memcpy( email, line + matches[ 2 ].rm_so, email_len );
+			mbstowcs( email, line + matches[ 2 ].rm_so, email_len );
 			email[ email_len ] = '\0';
 
 			size_t name_len = matches[ 3 ].rm_eo - matches[ 3 ].rm_so;
-			name = malloc( name_len + 1 );
+			name = malloc( sizeof(wchar_t) * (name_len + 1) );
 			if( !check_alloc(name) ) goto line_read_failed;
-			memcpy( name, line + matches[ 3 ].rm_so, name_len );
+			mbstowcs( name, line + matches[ 3 ].rm_so, name_len );
 			name[ name_len ] = '\0';
 
 			size_t office_phone_len = matches[ 4 ].rm_eo - matches[ 4 ].rm_so;
-			office_phone = malloc( office_phone_len + 1 );
+			office_phone = malloc( sizeof(wchar_t) * (office_phone_len + 1) );
 			if( !check_alloc(office_phone) ) goto line_read_failed;
-			memcpy( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
+			mbstowcs( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
 			office_phone[ office_phone_len ] = '\0';
 
 			size_t mobile_phone_len = matches[ 5 ].rm_eo - matches[ 5 ].rm_so;
-			mobile_phone = malloc( mobile_phone_len + 1 );
+			mobile_phone = malloc( sizeof(wchar_t) * (mobile_phone_len + 1) );
 			if( !check_alloc(mobile_phone) ) goto line_read_failed;
-			memcpy( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
+			mbstowcs( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
 			mobile_phone[ mobile_phone_len ] = '\0';
 
 			double utc_offset = time_utc_offset( tz_string );
@@ -989,17 +932,17 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 		else if (regex_result == REG_NOMATCH)
 		{
 			// line did not match.
-			console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 			fprintf( stderr, "ERROR: " );
-			console_reset( stderr );
+			wconsole_reset( stderr );
 			fprintf( stderr, "Unable to match line with regular expression (see line %d).\n", line_number );
 			goto line_read_failed;
 		}
 		else
 		{
-			console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
 			fprintf( stderr, "ERROR: " );
-			console_reset( stderr );
+			wconsole_reset( stderr );
 			fprintf( stderr, "Unable to execute regular expression.\n" );
 			goto line_read_failed;
 		}
@@ -1016,7 +959,6 @@ line_read_failed:
 	free( mobile_phone );
 	return false;
 }
-
 
 bool configuration_write_default( const char* configuration_filename )
 {
@@ -1073,7 +1015,7 @@ int contact_name_compare( const void *l, const void *r )
 {
 	const timezone_contact_t** left = (const timezone_contact_t**) l;
 	const timezone_contact_t** right = (const timezone_contact_t**) r;
-	return strcmp((*left)->name, (*right)->name );
+	return wcscmp((*left)->name, (*right)->name );
 }
 
 bool check_alloc( void* mem )
@@ -1089,44 +1031,4 @@ bool check_alloc( void* mem )
 	}
 
 	return result;
-}
-size_t mb_strlen(const char* utf8)
-{
-	size_t len = 0;
-	while(*utf8)
-	{
-		int i = mblen(utf8, 2);
-		if( i > 0 )
-		{
-			len += 1;
-			utf8 += i;
-		}
-		else
-		{
-			break;
-		}
-	}
-	return len;
-}
-
-size_t mb_size_at_char(const char* utf8, int character)
-{
-	size_t size = 0;
-	int i = 0;
-
-	while(*utf8 && i < character)
-	{
-		int cnt = mblen(utf8, 2);
-		if( cnt > 0 )
-		{
-			size += cnt;
-			utf8 += cnt;
-			i += 1;
-		}
-		else
-		{
-			break;
-		}
-	}
-	return size;
 }
