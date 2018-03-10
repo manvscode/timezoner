@@ -54,7 +54,7 @@ static void about ( int argc, char* argv[] );
 static void organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time );
 static bool read_configuration_from_home ( timezone_contact_t** contacts );
 static bool configuration_read ( const char* configuration_filename, timezone_contact_t** contacts );
-static bool configuration_read_line ( const char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
+static bool configuration_read_line ( char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
 static bool configuration_write_default ( const char* configuration_filename );
 static bool timezone_map_element_destroy ( void *p_key, void *p_value );
 static int  timezone_map_compare ( const void *p_key_left, const void *p_key_right );
@@ -88,9 +88,9 @@ int main( int argc, char* argv[] )
 					if( *argv[ arg + 1 ] != '-' )
 					{
 						column_widths[ 0 ] = atoi( argv[ arg + 1 ] );
+						arg += 1;
 					}
 
-					arg += 1;
 				}
 
 				if( (arg + 1) < argc )
@@ -98,9 +98,8 @@ int main( int argc, char* argv[] )
 					if( *argv[ arg + 1 ] != '-' )
 					{
 						column_widths[ 1 ] = atoi( argv[ arg + 1 ] );
+						arg += 1;
 					}
-
-					arg += 1;
 				}
 			}
 			else if( strcmp( "-U", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
@@ -860,7 +859,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 	return result;
 }
 
-bool configuration_read_line( const char* line, int line_number, regex_t* regex, timezone_contact_t** contacts )
+bool configuration_read_line( char* line, int line_number, regex_t* regex, timezone_contact_t** contacts )
 {
 	char* tz_string = NULL;
 
@@ -893,25 +892,30 @@ bool configuration_read_line( const char* line, int line_number, regex_t* regex,
 			memcpy( tz_string, line + matches[ 1 ].rm_so, tz_string_len );
 			tz_string[ tz_string_len ] = '\0';
 
-			size_t email_len = matches[ 2 ].rm_eo - matches[ 2 ].rm_so;
+			line[ matches[ 2 ].rm_eo ] = '\0';
+			size_t email_len = mb_strlen( line + matches[ 2 ].rm_so );
 			email = malloc( sizeof(wchar_t) * (email_len + 1) );
 			if( !check_alloc(email) ) goto line_read_failed;
 			mbstowcs( email, line + matches[ 2 ].rm_so, email_len );
 			email[ email_len ] = '\0';
 
-			size_t name_len = matches[ 3 ].rm_eo - matches[ 3 ].rm_so;
+			line[ matches[ 3 ].rm_eo ] = '\0';
+			size_t name_len = mb_strlen( line + matches[ 3 ].rm_so );
 			name = malloc( sizeof(wchar_t) * (name_len + 1) );
 			if( !check_alloc(name) ) goto line_read_failed;
 			mbstowcs( name, line + matches[ 3 ].rm_so, name_len );
 			name[ name_len ] = '\0';
 
-			size_t office_phone_len = matches[ 4 ].rm_eo - matches[ 4 ].rm_so;
+			line[ matches[ 4 ].rm_eo ] = '\0';
+			size_t office_phone_len = mb_strlen( line + matches[ 4 ].rm_so );
 			office_phone = malloc( sizeof(wchar_t) * (office_phone_len + 1) );
 			if( !check_alloc(office_phone) ) goto line_read_failed;
 			mbstowcs( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
 			office_phone[ office_phone_len ] = '\0';
 
-			size_t mobile_phone_len = matches[ 5 ].rm_eo - matches[ 5 ].rm_so;
+
+			line[ matches[ 5 ].rm_eo ] = '\0';
+			size_t mobile_phone_len = mb_strlen( line + matches[ 5 ].rm_so );
 			mobile_phone = malloc( sizeof(wchar_t) * (mobile_phone_len + 1) );
 			if( !check_alloc(mobile_phone) ) goto line_read_failed;
 			mbstowcs( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
