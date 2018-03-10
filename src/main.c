@@ -868,12 +868,12 @@ bool configuration_read_line( char* line, int line_number, regex_t* regex, timez
 	wchar_t* office_phone = NULL;
 	wchar_t* mobile_phone = NULL;
 
-	if( line[0] == '#' )
+	if( *line == '#' )
 	{
 		// skipping comments
 		goto line_read_success;
 	}
-	else if( strcmp( line, "" ) == 0 )
+	else if( *line == '\0' )
 	{
 		// skipping empty lines
 		goto line_read_success;
