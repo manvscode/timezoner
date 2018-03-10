@@ -37,7 +37,7 @@
 #include <libcollections/vector.h>
 #include <libcollections/tree-map.h>
 
-#define VERSION                 "1.1"
+#define VERSION                 "1.2"
 #define CONFIGURATION_FILENAME  ".timezoner"
 
 typedef struct timezone_contact {
