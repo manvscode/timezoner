@@ -1,6 +1,14 @@
 # Timezoner
+A command line tool for collaborating across timezones.
 
-> A command line tool for collaborating across timezones.
+## Building
+### Linux and MacOS X
+1. Clone the repository.
+2. `make`
+3. `make install INSTALL_PATH=/usr/local/bin`
+
+### Microsoft Windows using MinGW
+This is coming soon.
 
 ## Configuration
 
@@ -53,8 +61,9 @@ with the '-t' option.
 
 ## License
 
+	Copyright (C) 2019, Joe Marrero. http://www.joemarrero.com/
 	Copyright (C) 2017, End Point Corporation. http://www.endpoint.com/
-	 
+
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
 	in the Software without restriction, including without limitation the rights

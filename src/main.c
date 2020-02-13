@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2019, Joe Marrero. http://www.joemarrero.com/
  * Copyright (C) 2017, End Point Corporation. http://www.endpoint.com/
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -22,6 +23,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <string.h>
 #include <wchar.h>
 #include <locale.h>
@@ -37,7 +39,7 @@
 #include <libcollections/vector.h>
 #include <libcollections/tree-map.h>
 
-#define VERSION                 "1.2"
+#define VERSION                 "1.2.1"
 #define CONFIGURATION_FILENAME  ".timezoner"
 
 typedef struct timezone_contact {
@@ -49,27 +51,39 @@ typedef struct timezone_contact {
 	const wchar_t* mobile_phone;
 } timezone_contact_t;
 
+typedef struct tz_app { /* App state */
+	bool minimal;
+	bool organize_by_time;
+	int column_widths[ 2 ];
+	time_t now;
+} tz_app_t;
 
-static void about ( int argc, char* argv[] );
-static void organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time );
-static bool read_configuration_from_home ( timezone_contact_t** contacts );
-static bool configuration_read ( const char* configuration_filename, timezone_contact_t** contacts );
-static bool configuration_read_line ( char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
-static bool configuration_write_default ( const char* configuration_filename );
+static void tz_about ( int argc, char* argv[] );
+static void tz_print_error ( const tz_app_t* app,  const char* format, ... );
+static void tz_organize_data ( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time );
+static bool tz_read_configuration_from_home ( const tz_app_t* app, timezone_contact_t** contacts );
+static bool tz_configuration_read ( const tz_app_t* app, const char* configuration_name, timezone_contact_t** contacts );
+static bool tz_configuration_read_line ( const tz_app_t* app, char* line, int line_number, regex_t* regex, timezone_contact_t** contacts );
+static bool tz_configuration_write_default ( const char* configuration_filename );
+static void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
+static void tz_display_time_grouping_minimal ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
+static void tz_display_utc_grouping ( lc_tree_map_t* map, time_t now );
+static void tz_display_utc_grouping_minimal ( lc_tree_map_t* map, time_t now );
 static bool timezone_map_element_destroy ( void *p_key, void *p_value );
 static int  timezone_map_compare ( const void *p_key_left, const void *p_key_right );
 static int  contact_name_compare ( const void *l, const void *r );
-static bool check_alloc( void* mem );
-static void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
-static void display_utc_grouping ( lc_tree_map_t* map, time_t now );
+static bool tz_check_alloc( const tz_app_t* app, void* mem );
 
 
 int main( int argc, char* argv[] )
 {
-	bool organize_by_time = 1; // this is the default
-	int column_widths[ 2 ] = { 30, 25 };
-	const char* config_filename = NULL;
-	time_t now = time(NULL);
+	tz_app_t app = (tz_app_t) {
+		.minimal = false,
+		.organize_by_time = true, // this is the default
+		.column_widths = { 30, 25 },
+		.now = time(NULL)
+	};
+	const char* configuration_name = NULL;
 
 	setlocale( LC_ALL, "" );
 
@@ -81,13 +95,13 @@ int main( int argc, char* argv[] )
 		{
 			if( strcmp( "-T", argv[arg] ) == 0 || strcmp( "--group-time", argv[arg] ) == 0 )
 			{
-				organize_by_time = true;
+				app.organize_by_time = true;
 
 				if( (arg + 1) < argc )
 				{
 					if( *argv[ arg + 1 ] != '-' )
 					{
-						column_widths[ 0 ] = atoi( argv[ arg + 1 ] );
+						app.column_widths[ 0 ] = atoi( argv[ arg + 1 ] );
 						arg += 1;
 					}
 
@@ -97,27 +111,28 @@ int main( int argc, char* argv[] )
 				{
 					if( *argv[ arg + 1 ] != '-' )
 					{
-						column_widths[ 1 ] = atoi( argv[ arg + 1 ] );
+						app.column_widths[ 1 ] = atoi( argv[ arg + 1 ] );
 						arg += 1;
 					}
 				}
 			}
 			else if( strcmp( "-U", argv[arg] ) == 0 || strcmp( "--group-utc-offset", argv[arg] ) == 0 )
 			{
-				organize_by_time = false;
+				app.organize_by_time = false;
+			}
+			else if( strcmp( "-m", argv[arg] ) == 0 || strcmp( "--minimal", argv[arg] ) == 0 )
+			{
+				app.minimal = true;
 			}
 			else if( strcmp( "-f", argv[arg] ) == 0 || strcmp( "--file", argv[arg] ) == 0 )
 			{
 				if( (arg + 1) < argc )
 				{
-					config_filename = argv[ arg + 1];
+					configuration_name = argv[ arg + 1];
 				}
 				else
 				{
-					wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-					fprintf( stderr, "ERROR: " );
-					wconsole_reset( stderr );
-					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
+					tz_print_error( &app, "Missing parameter for option '%s'\n", argv[arg] );
 					return -2;
 				}
 				 arg += 1;
@@ -139,7 +154,7 @@ int main( int argc, char* argv[] )
 					bool time_parsed = false;
 
 					/* Initialize with today's date and clear hours, minutes, seconds. */
-					localtime_r( &now, &tm );
+					localtime_r( &app.now, &tm );
 					tm.tm_sec  = 0;
 					tm.tm_min  = 0;
 					tm.tm_hour = 0;
@@ -153,41 +168,31 @@ int main( int argc, char* argv[] )
 						}
 					}
 
-
 					if( time_parsed )
 					{
-						now = mktime( &tm );
+						app.now = mktime( &tm );
 					}
 					else
 					{
-						wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-						fprintf( stderr, "ERROR: " );
-						wconsole_reset( stderr );
-						fprintf( stderr, "Failed to match time for '%s'\n", argv[arg + 1] );
+						tz_print_error( &app, "Failed to match time for '%s'\n", argv[arg + 1] );
 						return -2;
 					}
 				}
 				else
 				{
-					wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-					fprintf( stderr, "ERROR: " );
-					wconsole_reset( stderr );
-					fprintf( stderr, "Missing parameter for option '%s'\n", argv[arg] );
+					tz_print_error( &app, "Missing parameter for option '%s'\n", argv[arg] );
 					return -2;
 				}
 				 arg += 1;
 			}
 			else if( strcmp( "-h", argv[arg] ) == 0 || strcmp( "--help", argv[arg] ) == 0 )
 			{
-				about( argc, argv );
+				tz_about( argc, argv );
 				return 0;
 			}
 			else
 			{
-				wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-				fprintf( stderr, "ERROR: " );
-				wconsole_reset( stderr );
-				fprintf( stderr, "Unrecognized command line option '%s'\n", argv[arg] );
+				tz_print_error( &app, "Unrecognized command line option '%s'\n", argv[arg] );
 				return -2;
 			}
 		} // for
@@ -196,7 +201,7 @@ int main( int argc, char* argv[] )
 	timezone_contact_t* contacts = NULL;
 	lc_vector_create( contacts, 1 );
 
-	if( !check_alloc(contacts) )
+	if( !tz_check_alloc(&app, contacts) )
 	{
 		goto done;
 	}
@@ -204,27 +209,41 @@ int main( int argc, char* argv[] )
 	lc_tree_map_t map;
 	lc_tree_map_create( &map, timezone_map_element_destroy, timezone_map_compare, malloc, free );
 
-	if( config_filename )
+	if( configuration_name )
 	{
-		if( !configuration_read( config_filename, &contacts ) )
+		if( !tz_configuration_read( &app, configuration_name, &contacts ) )
 		{
 			goto done;
 		}
 	}
-	else if( !read_configuration_from_home( &contacts ) )
+	else if( !tz_read_configuration_from_home( &app, &contacts ) )
 	{
 		goto done;
 	}
 
-	organize_data( contacts, &map, now, organize_by_time );
+	tz_organize_data( contacts, &map, app.now, app.organize_by_time );
 
-	if( organize_by_time )
+	if( app.organize_by_time )
 	{
-		display_time_grouping( &map, now, column_widths[0], column_widths[1] );
+		if (app.minimal)
+		{
+			tz_display_time_grouping_minimal( &map, app.now, app.column_widths[0], app.column_widths[1] );
+		}
+		else
+		{
+			tz_display_time_grouping( &map, app.now, app.column_widths[0], app.column_widths[1] );
+		}
 	}
 	else
 	{
-		display_utc_grouping( &map, now );
+		if (app.minimal)
+		{
+			tz_display_utc_grouping_minimal( &map, app.now );
+		}
+		else
+		{
+			tz_display_utc_grouping( &map, app.now );
+		}
 	}
 
 done:
@@ -246,9 +265,10 @@ done:
 	return 0;
 }
 
-void about( int argc, char* argv[] )
+void tz_about( int argc, char* argv[] )
 {
 	printf( "Timezoner v%s\n", VERSION );
+	printf( "Copyright (c) 2019, Joe Marrero.\n");
 	printf( "Copyright (c) 2017, End Point Corporation.\n");
 	printf( "\n" );
 
@@ -268,10 +288,31 @@ void about( int argc, char* argv[] )
 	printf( "    %-2s, %-20s  %-50s\n", "-t", "--time", "Use a specific time." );
 	printf( "    %-2s, %-20s  %-50s\n", "-T", "--group-time", "Group contacts by time. Two optional arguments for the column widths is possible." );
 	printf( "    %-2s, %-20s  %-50s\n", "-U", "--group-utc-offset", "Group contacts by UTC offset." );
+	printf( "    %-2s, %-20s  %-50s\n", "-m", "--minimal", "Use minimal formatting." );
 	printf( "\n" );
 }
 
-void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time )
+void tz_print_error(const tz_app_t* app,  const char* format, ... )
+{
+	va_list args;
+	va_start(args, format);
+
+	if (app->minimal)
+	{
+		fprintf( stderr, "ERROR: " );
+	}
+	else
+	{
+		console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
+		fprintf( stderr, "ERROR: " );
+		console_reset( stderr );
+	}
+
+	vfprintf( stderr, format, args );
+	va_end(args);
+}
+
+void tz_organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time_t now, bool organize_by_time )
 {
 	// Group all contacts by timezone...
 	for( int i = 0; i < lc_vector_size(contacts); i++ )
@@ -288,7 +329,6 @@ void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time
 		else
 		{
 			snprintf(group_key, sizeof(group_key), "%+05.1f", contact->utc_offset );
-			//strftime(group_key, sizeof(group_key), "%z" /* utc offset */, tz_time );
 		}
 
 		lc_tree_map_iterator_t itr = lc_tree_map_find( map, group_key );
@@ -321,7 +361,7 @@ void organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, time
 	}
 }
 
-void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width )
+void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int email_width )
 {
 	if( name_width < 10 )
 	{
@@ -443,7 +483,6 @@ void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int
 	} // for
 
 
-
 	wprintf( L"\u2514" );
 	int count = 52 + name_width + email_width;
 	while( count-- > 0 )
@@ -453,7 +492,96 @@ void display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, int
 	wprintf( L"\u2518\n" );
 }
 
-void display_utc_grouping( lc_tree_map_t* map, time_t now )
+
+void tz_display_time_grouping_minimal( lc_tree_map_t* map, time_t now, int name_width, int email_width )
+{
+	if( name_width < 10 )
+	{
+		name_width = 10;
+	}
+
+	if( email_width < 10 )
+	{
+		email_width = 10;
+	}
+
+	if( lc_tree_map_size( map ) == 0 )
+	{
+		return;
+	}
+
+	bool first = true;
+
+	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+	     itr != lc_tree_map_end( );
+	     itr = lc_tree_map_next(itr) )
+	{
+		timezone_contact_t** list = itr->value;
+
+
+		struct tm* tz_time = time_local( now, list[0]->timezone );
+		char time_str[ 32 ];
+		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
+
+		wprintf( L"%s\n", time_str );
+
+		for( int i = 0; i < lc_vector_size(list); i++ ) // for each contact...
+		{
+			timezone_contact_t* contact = list[ i ];
+
+			if( wcslen(contact->name) > name_width)
+			{
+				// truncated
+				wprintf( L"%-.*ls...  ", name_width - 3, contact->name );
+			}
+			else
+			{
+				// fixed width
+				wprintf( L"%-*ls  ", name_width, contact->name );
+			}
+
+			if( wcslen(contact->email) > email_width)
+			{
+				// truncated
+				wprintf( L" %-.*ls...  ", email_width - 3, contact->email );
+			}
+			else
+			{
+				// fixed width
+				wprintf( L" %-*ls  ", email_width, contact->email );
+			}
+
+			if( wcslen(contact->office_phone) > 19)
+			{
+				// truncated
+				wprintf( L" %-.*ls... ", 16, contact->office_phone );
+			}
+			else
+			{
+				// fixed width
+				wprintf( L"  %-*ls ", 19, contact->office_phone );
+			}
+
+			if( wcslen(contact->mobile_phone) > 19)
+			{
+				// truncated
+				wprintf( L"%-.*ls... ", 16, contact->mobile_phone );
+			}
+			else
+			{
+				// fixed width
+				wprintf( L"%-*ls ", 19, contact->mobile_phone );
+			}
+
+			wprintf(L"\n");
+		} // for
+
+		wprintf(L"\n");
+	} // for
+}
+
+
+void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 {
 	if( lc_tree_map_size( map ) == 0 )
 	{
@@ -743,10 +871,206 @@ void display_utc_grouping( lc_tree_map_t* map, time_t now )
 	} // end of footer
 
 	lc_tree_map_clear( map );
-
 }
 
-bool read_configuration_from_home( timezone_contact_t** contacts )
+
+void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
+{
+	if( lc_tree_map_size( map ) == 0 )
+	{
+		return;
+	}
+
+	lc_tree_map_iterator_t last_node = lc_tree_map_node_maximum( lc_tree_map_root(map) );
+
+	// start of headers
+	{
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+			timezone_contact_t* contact = lc_vector_last(list);
+
+			wprintf( L"UTC%-5s                ", (const char*) itr->key );
+		} // for
+		wprintf( L"\n\n" );
+
+	} // end of headers
+
+
+	int timezone_count = lc_tree_map_size( map );
+
+	while( timezone_count > 0 )
+	{
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+			if( list && lc_vector_size(list) > 0)
+			{
+				timezone_contact_t* contact = lc_vector_last(list);
+
+				if( wcslen(contact->name) > 20)
+				{
+					// truncated
+					wprintf( L"%-.*ls... ", 20, contact->name );
+				}
+				else
+				{
+					// fixed width
+					wprintf( L"%-*ls", 24, contact->name );
+				}
+			}
+			else
+			{
+				wprintf( L"%-24s", "" );
+			}
+		} // for
+		wprintf( L"\n" );
+
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+
+			if( list && lc_vector_size(list) > 0)
+			{
+				timezone_contact_t* contact = lc_vector_last(list);
+
+				struct tm* tz_time = time_local( now, contact->timezone );
+
+				char time_str[12];
+				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
+				time_str[ sizeof(time_str) - 1 ] = '\0';
+
+				wprintf( L"  %-*s", 22, time_str );
+			}
+			else
+			{
+				wprintf( L"%-24s", "" );
+			}
+		} // for
+		wprintf( L"\n" );
+
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+			if( list && lc_vector_size(list) > 0)
+			{
+				timezone_contact_t* contact = lc_vector_last(list);
+
+				if( wcslen(contact->email) > 19)
+				{
+					// truncated
+					wprintf( L"  %-.*ls...", 19, contact->email );
+				}
+				else
+				{
+					// fixed width
+					wprintf( L"  %-*ls", 22, contact->email );
+				}
+			}
+			else
+			{
+				wprintf( L"%-24s", "" );
+			}
+		} // for
+		wprintf( L"\n" );
+
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+			if( list && lc_vector_size(list) > 0)
+			{
+				timezone_contact_t* contact = lc_vector_last(list);
+
+				if( wcslen(contact->office_phone) > 19)
+				{
+					// truncated
+					wprintf( L"  %-.*ls...", 19, contact->office_phone );
+				}
+				else
+				{
+					// fixed width
+					wprintf( L"  %-*ls", 22, contact->office_phone );
+				}
+			}
+			else
+			{
+				wprintf( L"%-24s", "" );
+			}
+
+		} // for
+		wprintf( L"\n" );
+
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+			if( list && lc_vector_size(list) > 0)
+			{
+				timezone_contact_t* contact = lc_vector_last(list);
+
+				if( wcslen(contact->mobile_phone) > 19)
+				{
+					// truncated
+					wprintf( L"  %-.*ls", 19, contact->mobile_phone );
+				}
+				else
+				{
+					// fixed width
+					wprintf( L"  %-*ls", 22, contact->mobile_phone );
+				}
+			}
+			else
+			{
+				wprintf( L"%-24s", "" );
+			}
+		} // for
+		wprintf( L"\n\n" );
+
+
+
+		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
+		     itr != lc_tree_map_end( );
+		     itr = lc_tree_map_next(itr) )
+		{
+			timezone_contact_t** list = itr->value;
+
+			if( list )
+			{
+				if(lc_vector_size(list) > 0)
+				{
+					timezone_contact_t* contact = lc_vector_last(list);
+					lc_vector_pop(list);
+				}
+
+				if( lc_vector_size(list) == 0 )
+				{
+					lc_vector_destroy(list);
+					itr->value = NULL;
+					timezone_count--;
+				}
+			}
+		} // for
+	} // while
+
+
+	lc_tree_map_clear( map );
+}
+
+
+
+
+bool tz_read_configuration_from_home( const tz_app_t* app, timezone_contact_t** contacts )
 {
 	bool result = true;
 	struct passwd *pw = getpwuid(getuid());
@@ -758,39 +1082,33 @@ bool read_configuration_from_home( timezone_contact_t** contacts )
 
 	if( file_exists( configuration_filename ) )
 	{
-		if( !configuration_read( configuration_filename, contacts ) )
+		if( !tz_configuration_read( app, configuration_filename, contacts ) )
 		{
-			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-			fprintf( stderr, "ERROR: " );
-			wconsole_reset( stderr );
-			fprintf( stderr, "Unable to read configuration at '%s'\n", configuration_filename );
+			tz_print_error( app, "Unable to read configuration at '%s'\n", configuration_filename );
 			result = false;
 			goto done;
 		}
 	}
 	else
 	{
-		if( !configuration_write_default( configuration_filename ) )
+		if( !tz_configuration_write_default( configuration_filename ) )
 		{
-			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-			fprintf( stderr, "ERROR: " );
-			wconsole_reset( stderr );
-			fprintf( stderr, "Failed to create '%s'.\n", configuration_filename );
+			tz_print_error( app, "Failed to create '%s'.\n", configuration_filename );
 			result = false;
 			goto done;
 		}
 
-		result = read_configuration_from_home( contacts );
+		result = tz_read_configuration_from_home( app, contacts );
 	}
 
 done:
 	return result;
 }
 
-bool configuration_read( const char* configuration_filename, timezone_contact_t** contacts )
+bool tz_configuration_read( const tz_app_t* app, const char* configuration_name, timezone_contact_t** contacts )
 {
 	bool result = false;
-	FILE* config = fopen( configuration_filename, "r" );
+	FILE* config = fopen( configuration_name, "r" );
 
 	if( config )
 	{
@@ -808,10 +1126,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 
 		if( regex_comp_result )
 		{
-			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-			fprintf( stderr, "ERROR: " );
-			wconsole_reset( stderr );
-			fprintf( stderr, "Unable to compile regular expression.\n" );
+			tz_print_error( app, "Unable to compile regular expression.\n" );
 			result = false;
 		}
 		else
@@ -826,10 +1141,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 					if( strchr(line, '\n') == NULL )
 					{
 						// Check for lines longer than we can support.
-						wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-						fprintf( stderr, "ERROR: " );
-						wconsole_reset( stderr );
-						fprintf( stderr, "Line exceeds maximum possible length of %zu.\n", sizeof(line) );
+						tz_print_error( app, "Line exceeds maximum possible length of %zu.\n", sizeof(line) );
 
 						result = false;
 						goto cleanup;
@@ -837,7 +1149,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 
 					string_trim( line, " \t\r\n" );
 
-					if( !configuration_read_line(line, line_number, &regex, contacts ) )
+					if( !tz_configuration_read_line(app, line, line_number, &regex, contacts ) )
 					{
 						result = false;
 						goto cleanup;
@@ -859,7 +1171,7 @@ bool configuration_read( const char* configuration_filename, timezone_contact_t*
 	return result;
 }
 
-bool configuration_read_line( char* line, int line_number, regex_t* regex, timezone_contact_t** contacts )
+bool tz_configuration_read_line( const tz_app_t* app, char* line, int line_number, regex_t* regex, timezone_contact_t** contacts )
 {
 	char* tz_string = NULL;
 
@@ -888,28 +1200,28 @@ bool configuration_read_line( char* line, int line_number, regex_t* regex, timez
 		{
 			size_t tz_string_len = matches[ 1 ].rm_eo - matches[ 1 ].rm_so;
 			tz_string = malloc( tz_string_len + 1 );
-			if( !check_alloc(tz_string) ) goto line_read_failed;
+			if( !tz_check_alloc(app, tz_string) ) goto line_read_failed;
 			memcpy( tz_string, line + matches[ 1 ].rm_so, tz_string_len );
 			tz_string[ tz_string_len ] = '\0';
 
 			line[ matches[ 2 ].rm_eo ] = '\0';
 			size_t email_len = mb_strlen( line + matches[ 2 ].rm_so );
 			email = malloc( sizeof(wchar_t) * (email_len + 1) );
-			if( !check_alloc(email) ) goto line_read_failed;
+			if( !tz_check_alloc(app, email) ) goto line_read_failed;
 			mbstowcs( email, line + matches[ 2 ].rm_so, email_len );
 			email[ email_len ] = '\0';
 
 			line[ matches[ 3 ].rm_eo ] = '\0';
 			size_t name_len = mb_strlen( line + matches[ 3 ].rm_so );
 			name = malloc( sizeof(wchar_t) * (name_len + 1) );
-			if( !check_alloc(name) ) goto line_read_failed;
+			if( !tz_check_alloc(app, name) ) goto line_read_failed;
 			mbstowcs( name, line + matches[ 3 ].rm_so, name_len );
 			name[ name_len ] = '\0';
 
 			line[ matches[ 4 ].rm_eo ] = '\0';
 			size_t office_phone_len = mb_strlen( line + matches[ 4 ].rm_so );
 			office_phone = malloc( sizeof(wchar_t) * (office_phone_len + 1) );
-			if( !check_alloc(office_phone) ) goto line_read_failed;
+			if( !tz_check_alloc(app, office_phone) ) goto line_read_failed;
 			mbstowcs( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
 			office_phone[ office_phone_len ] = '\0';
 
@@ -917,7 +1229,7 @@ bool configuration_read_line( char* line, int line_number, regex_t* regex, timez
 			line[ matches[ 5 ].rm_eo ] = '\0';
 			size_t mobile_phone_len = mb_strlen( line + matches[ 5 ].rm_so );
 			mobile_phone = malloc( sizeof(wchar_t) * (mobile_phone_len + 1) );
-			if( !check_alloc(mobile_phone) ) goto line_read_failed;
+			if( !tz_check_alloc(app, mobile_phone) ) goto line_read_failed;
 			mbstowcs( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
 			mobile_phone[ mobile_phone_len ] = '\0';
 
@@ -936,18 +1248,12 @@ bool configuration_read_line( char* line, int line_number, regex_t* regex, timez
 		else if (regex_result == REG_NOMATCH)
 		{
 			// line did not match.
-			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-			fprintf( stderr, "ERROR: " );
-			wconsole_reset( stderr );
-			fprintf( stderr, "Unable to match line with regular expression (see line %d).\n", line_number );
+			tz_print_error( app, "Unable to match line with regular expression (see line %d).\n", line_number );
 			goto line_read_failed;
 		}
 		else
 		{
-			wconsole_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-			fprintf( stderr, "ERROR: " );
-			wconsole_reset( stderr );
-			fprintf( stderr, "Unable to execute regular expression.\n" );
+			tz_print_error( app, "Unable to execute regular expression.\n" );
 			goto line_read_failed;
 		}
 	}
@@ -964,7 +1270,7 @@ line_read_failed:
 	return false;
 }
 
-bool configuration_write_default( const char* configuration_filename )
+bool tz_configuration_write_default( const char* configuration_filename )
 {
 	bool result = false;
 	FILE* config = fopen( configuration_filename, "w" );
@@ -1022,15 +1328,12 @@ int contact_name_compare( const void *l, const void *r )
 	return wcscmp((*left)->name, (*right)->name );
 }
 
-bool check_alloc( void* mem )
+bool tz_check_alloc( const tz_app_t* app, void* mem )
 {
 	bool result = true;
 	if( !mem )
 	{
-		console_fg_color_256( stderr, CONSOLE_COLOR256_RED );
-		fprintf( stderr, "ERROR: " );
-		console_reset( stderr );
-		fprintf( stderr, "Out of memory.\n" );
+		tz_print_error( app, "Out of memory.\n" );
 		result = false;
 	}
 

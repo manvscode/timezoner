@@ -1,12 +1,13 @@
 
 CC = gcc
-CFLAGS = -O0 -g -I /usr/local/include -I extern/include/
+CFLAGS = -fsanitize=undefined -O0 -g -I /usr/local/include -I extern/include/
 #CFLAGS = -std=c99 -O2 -I /usr/local/include -I extern/include/
 LDFLAGS = extern/lib/libutility.a extern/lib/libcollections.a -L /usr/local/lib -L extern/lib/ -L extern/libcollections/lib/
 CWD = $(shell pwd)
 BIN_NAME = timezoner
 
 SOURCES = src/main.c
+
 
 all: extern/libutility extern/libcollections bin/$(BIN_NAME)
 
@@ -42,3 +43,13 @@ clean_extern:
 clean:
 	@rm -rf src/*.o
 	@rm -rf bin
+
+#################################################
+# Installing                                    #
+#################################################
+install:
+ifeq ("$(INSTALL_PATH)","")
+	$(error INSTALL_PATH is not set.)
+endif
+	@echo "Installing ${CWD}/bin/${BIN_NAME} to ${INSTALL_PATH}"
+	@cp bin/$(BIN_NAME) $(INSTALL_PATH)/$(BIN_NAME)
