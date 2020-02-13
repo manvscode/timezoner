@@ -510,8 +510,6 @@ void tz_display_time_grouping_minimal( lc_tree_map_t* map, time_t now, int name_
 		return;
 	}
 
-	bool first = true;
-
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 	     itr != lc_tree_map_end( );
 	     itr = lc_tree_map_next(itr) )
@@ -620,9 +618,6 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
 		{
-			timezone_contact_t** list = itr->value;
-			timezone_contact_t* contact = lc_vector_last(list);
-
 			wconsole_fg_color_256( stdout, CONSOLE_COLOR256_BRIGHT_MAGENTA );
 			wprintf( L"        UTC%s         ", (const char*) itr->key );
 			wconsole_reset( stdout );
@@ -829,7 +824,6 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				if(lc_vector_size(list) > 0)
 				{
-					timezone_contact_t* contact = lc_vector_last(list);
 					lc_vector_pop(list);
 				}
 
@@ -881,17 +875,12 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 		return;
 	}
 
-	lc_tree_map_iterator_t last_node = lc_tree_map_node_maximum( lc_tree_map_root(map) );
-
 	// start of headers
 	{
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
 		{
-			timezone_contact_t** list = itr->value;
-			timezone_contact_t* contact = lc_vector_last(list);
-
 			wprintf( L"UTC%-5s                ", (const char*) itr->key );
 		} // for
 		wprintf( L"\n\n" );
@@ -1049,7 +1038,6 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 			{
 				if(lc_vector_size(list) > 0)
 				{
-					timezone_contact_t* contact = lc_vector_last(list);
 					lc_vector_pop(list);
 				}
 
@@ -1304,7 +1292,6 @@ bool timezone_map_element_destroy( void *p_key, void *p_value )
 	{
 		while(lc_vector_size(list) > 0)
 		{
-			timezone_contact_t* contact = lc_vector_last(list);
 			lc_vector_pop(list);
 		}
 
