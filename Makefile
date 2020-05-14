@@ -1,7 +1,7 @@
 
 CC = gcc
 #CFLAGS =  -O0 -g -I /usr/local/include -I extern/include/
-CFLAGS = -std=c99 -Wall -D_DEFAULT_SOURCE -O2 -I /usr/local/include -I extern/include/
+CFLAGS = -std=c99 -Wall -D_DEFAULT_SOURCE -O2 -I /usr/local/include -I extern/include/utility-1.0.0/ -I extern/include/collections-1.0.0/
 LDFLAGS = extern/lib/libutility.a extern/lib/libcollections.a -L /usr/local/lib -L extern/lib/ -L extern/libcollections/lib/
 CWD = $(shell pwd)
 BIN_NAME = timezoner

@@ -33,11 +33,11 @@
 #include <pwd.h>
 #include <unistd.h>
 #include <regex.h>
-#include <libutility/utility.h>
-#include <libutility/console.h>
+#include <utility.h>
+#include <console.h>
 #define VECTOR_GROW_AMOUNT(array)      (1)
-#include <libcollections/vector.h>
-#include <libcollections/tree-map.h>
+#include <collections/vector.h>
+#include <collections/tree-map.h>
 
 #define VERSION                 "1.2.1"
 #define CONFIGURATION_FILENAME  ".timezoner"
@@ -1100,6 +1100,17 @@ bool tz_configuration_read( const tz_app_t* app, const char* configuration_name,
 
 	if( config )
 	{
+#ifdef __APPLE__
+		const char* CONFIG_LINE_REGEX = "([[:alpha:]]+/?[[:alnum:]_]+)" /* group 1: timezone code */
+		                                "[[:space:]]+"
+                                        "\"(.*)\"" /* group 2: email */
+		                                "[[:space:]]+"
+		                                "\"(.*)\"" /* group 3: name */
+		                                "[[:space:]]+"
+		                                "\"(.*)\"" /* group 4: office number */
+		                                "[[:space:]]+"
+		                                "\"(.*)\""; /* group 5: mobile number */
+#else // Linux and MinGW
 		const char* CONFIG_LINE_REGEX = "([[:alpha:]]+?/?[[:alnum:]_]+)" /* group 1: timezone code */
 		                                "[[:space:]]+"
 		                                "\"(.*)\"" /* group 2: email */
@@ -1109,12 +1120,15 @@ bool tz_configuration_read( const tz_app_t* app, const char* configuration_name,
 		                                "\"(.*)\"" /* group 4: office number */
 		                                "[[:space:]]+"
 		                                "\"(.*)\""; /* group 5: mobile number */
+#endif
 		regex_t regex;
 		int regex_comp_result = regcomp( &regex, CONFIG_LINE_REGEX, REG_EXTENDED | REG_ICASE);
 
 		if( regex_comp_result )
 		{
-			tz_print_error( app, "Unable to compile regular expression.\n" );
+			char error[256];
+			regerror(regex_comp_result, &regex, error, sizeof(error));
+			tz_print_error( app, "Unable to compile regular expression.\nProblem: %s\n", error );
 			result = false;
 		}
 		else
