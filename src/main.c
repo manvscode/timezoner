@@ -30,14 +30,18 @@
 #define __USE_XOPEN
 #include <time.h>
 #include <limits.h>
-#include <pwd.h>
-#include <unistd.h>
 #include <regex.h>
 #include <utility.h>
 #include <console.h>
 #define VECTOR_GROW_AMOUNT(array)      (1)
 #include <collections/vector.h>
 #include <collections/tree-map.h>
+#if defined(_WIN32) || defined(_WIN64)
+# include <windows.h>
+#else
+# include <unistd.h>
+# include <pwd.h>
+#endif
 
 #define VERSION                 "1.2.2"
 #define CONFIGURATION_FILENAME  ".timezoner"
@@ -272,8 +276,20 @@ void tz_about( int argc, char* argv[] )
 	printf( "Copyright (c) 2017, End Point Corporation.\n");
 	printf( "\n" );
 
+#if defined(_WIN32) || defined(_WIN64)
+	//const char* programData[256];
+	//char configuration_filename[ PATH_MAX ];
+
+	//HRESULT folderPathResult = SHGetKnownFolderPath(
+		//FOLDERID_ProgramData,
+		//KF_FLAG_DEFAULT,
+		//NULL,
+		//programData
+	//);
+
+#else
 	struct passwd *pw = getpwuid(getuid());
-	const char *homedir = pw->pw_dir;
+	const char* homedir = pw->pw_dir;
 
 	char configuration_filename[ PATH_MAX ];
 	snprintf( configuration_filename, sizeof(configuration_filename), "%s/%s", homedir, CONFIGURATION_FILENAME );
@@ -282,6 +298,8 @@ void tz_about( int argc, char* argv[] )
 	printf( "This program expects a configuration file under \"%s\"\n", configuration_filename );
 	printf( "If the file doesn't exist then an example configuration is created.\n");
 	printf( "\n" );
+#endif
+
 
 	printf( "Command Line Options:\n" );
 	printf( "    %-2s, %-20s  %-50s\n", "-f", "--file", "Use a specific configuration file." );
