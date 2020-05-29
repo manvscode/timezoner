@@ -31,8 +31,10 @@
 #include <time.h>
 #include <limits.h>
 #include <regex.h>
-#include <utility.h>
-#include <console.h>
+#include <xtd/console.h>
+#include <xtd/filesystem.h>
+#include <xtd/string.h>
+#include <xtd/time.h>
 #define VECTOR_GROW_AMOUNT(array)      (1)
 #include <collections/vector.h>
 #include <collections/tree-map.h>
