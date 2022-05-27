@@ -4,11 +4,22 @@ A command line tool for collaborating across timezones.
 ## Building
 ### Linux and MacOS X
 1. Clone the repository.
-2. `make`
+2. `make OS=linux`
 3. `make install INSTALL_PATH=/usr/local/bin`
 
 ### Microsoft Windows using MinGW
-This is coming soon.
+This is currently a work in progress.
+
+1. Clone the repository.
+2. You can build for x86 or x86_64.
+
+    To build for Windows x86:
+
+        make OS=windows-x86
+
+    To build for Windows x86_64:
+
+        make OS=windows-x86_64
 
 ## Configuration
 

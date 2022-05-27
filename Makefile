@@ -42,8 +42,8 @@ BIN_NAME = timezoner-x64.exe
 CC=x86_64-w64-mingw32-gcc
 HOST=x86_64-w64-mingw32
 CFLAGS += -D_POSIX -mwindows
-#LDFLAGS = extern/lib/libxtd.dll.a extern/lib/libcollections.dll.a /usr/x86_64-w64-mingw32/lib/libmsvcrt.a -L /usr/local/lib -L extern/lib/ -L extern/libcollections/lib/ -L /usr/x86_64-w64-mingw32/lib/ -lmingw32 -lmsvcrt
-LDFLAGS = extern/lib/libxtd.a extern/lib/libcollections.a -L /usr/local/lib -L extern/lib/ -L extern/libcollections/lib/ -L /usr/x86_64-w64-mingw32/lib/ -lmingw32 -lmsvcrt
+#LDFLAGS = extern/lib/libxtd.dll.a extern/lib/libcollections.dll.a /usr/x86_64-w64-mingw32/lib/libmsvcrt.a -L/usr/local/lib -Lextern/lib/ -Lextern/libcollections/lib/ -L/usr/x86_64-w64-mingw32/lib/ -lmingw32 -lmsvcrt
+LDFLAGS = extern/lib/libxtd.a extern/lib/libcollections.a -L/usr/local/lib -Lextern/lib/ -Lextern/libcollections/lib/ -L/usr/x86_64-w64-mingw32/lib/ -lmingw32 -lmsvcrt
 endif
 
 
@@ -67,12 +67,12 @@ src/%.o: src/%.c
 #################################################
 extern/libxtd:
 	@mkdir -p extern/libxtd/
-	@git clone https://bitbucket.org/manvscode/libxtd.git extern/libxtd/
+	@git clone https://github.com/manvscode/libxtd.git extern/libxtd/
 	@cd extern/libxtd && autoreconf -fi && ./configure --libdir=$(CWD)/extern/lib/ --includedir=$(CWD)/extern/include/ --host=$(HOST) && make && make install
 
 extern/libcollections:
 	@mkdir -p extern/libcollections/
-	@git clone https://bitbucket.org/manvscode/libcollections.git extern/libcollections/
+	@git clone https://github.com/manvscode/libcollections.git extern/libcollections/
 	@cd extern/libcollections && autoreconf -fi && ./configure --libdir=$(CWD)/extern/lib/ --includedir=$(CWD)/extern/include/ --host=$(HOST) && make && make install
 
 #################################################
