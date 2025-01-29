@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, Joe Marrero. http://www.joemarrero.com/
+ * Copyright (C) 2019-2025, Joe Marrero. http://www.joemarrero.com/
  * Copyright (C) 2017, End Point Corporation. http://www.endpoint.com/
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

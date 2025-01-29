@@ -1,5 +1,13 @@
 # Timezoner
-A command line tool for collaborating across timezones.
+A command-line tool designed to simplify collaboration across time zones. It enables users to check a 
+colleague's current time and visualize time shifts effortlessly.
+
+## Donate, if you found this tool useful
+
+The development of this tool took numerous hours of development and testing.  If you found that it
+is useful to you, then please consider making a donation of bitcoin to: **bc1qezh0x9324px8aszr09xmmtxqe7ttd7ftumayhv**
+
+All donations help cover maintenance costs.
 
 ## Building
 ### Linux and MacOS X
@@ -72,7 +80,7 @@ with the '-t' option.
 
 ## License
 
-	Copyright (C) 2019, Joe Marrero. http://www.joemarrero.com/
+	Copyright (C) 2019-2025, Joe Marrero. http://www.joemarrero.com/
 	Copyright (C) 2017, End Point Corporation. http://www.endpoint.com/
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
