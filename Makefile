@@ -18,9 +18,9 @@ endif
 CWD = $(shell pwd)
 
 ifeq ($(DEBUG), true)
-CFLAGS = -std=c99 -Wall -O0 -g -I /usr/local/include -I extern/include/xtd-1.0.0/ -I extern/include/collections-1.0.0/
+CFLAGS = -std=c99 -Wall -O0 -g -I /usr/local/include -I extern/include/xtd-1.0.0/ -I extern/include/collections-2.0.0/
 else
-CFLAGS = -std=c99 -Wall -D_DEFAULT_SOURCE -O2 -I /usr/local/include -I extern/include/xtd-1.0.0/ -I extern/include/collections-1.0.0/
+CFLAGS = -std=c99 -Wall -D_DEFAULT_SOURCE -O2 -I /usr/local/include -I extern/include/xtd-1.0.0/ -I extern/include/collections-2.0.0/
 endif
 
 ifeq ($(OS),linux)
