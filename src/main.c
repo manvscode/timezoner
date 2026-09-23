@@ -82,6 +82,7 @@ static bool tz_check_alloc( const tz_app_t* app, void* mem );
 
 int main( int argc, char* argv[] )
 {
+	int result = EXIT_SUCCESS;
 	tz_app_t app = (tz_app_t) {
 		.minimal = false,
 		.organize_by_time = true, // this is the default
@@ -208,7 +209,7 @@ int main( int argc, char* argv[] )
 
 	if( !tz_check_alloc(&app, contacts) )
 	{
-		goto done;
+		return EXIT_FAILURE;
 	}
 
 	lc_tree_map_t map;
@@ -218,11 +219,13 @@ int main( int argc, char* argv[] )
 	{
 		if( !tz_configuration_read( &app, configuration_name, &contacts ) )
 		{
+			result = EXIT_FAILURE;
 			goto done;
 		}
 	}
 	else if( !tz_read_configuration_from_home( &app, &contacts ) )
 	{
+		result = EXIT_FAILURE;
 		goto done;
 	}
 
@@ -267,7 +270,7 @@ done:
 	}
 
 	lc_vector_destroy( contacts );
-	return 0;
+	return result;
 }
 
 void tz_about( int argc, char* argv[] )
@@ -1224,6 +1227,13 @@ bool tz_configuration_read_line( const tz_app_t* app, char* line, int line_numbe
 			if( !tz_check_alloc(app, tz_string) ) goto line_read_failed;
 			memcpy( tz_string, line + matches[ 1 ].rm_so, tz_string_len );
 			tz_string[ tz_string_len ] = '\0';
+
+			struct tm tz_time;
+			if( !xtd_time_local_r( app->now, tz_string, &tz_time ) )
+			{
+				tz_print_error( app, "Invalid timezone '%s' on line %d.\n", tz_string, line_number );
+				goto line_read_failed;
+			}
 
 			line[ matches[ 2 ].rm_eo ] = '\0';
 			size_t email_len = xtd_mb_strlen( line + matches[ 2 ].rm_so );
