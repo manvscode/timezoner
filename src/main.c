@@ -35,7 +35,6 @@
 #include <xtd/filesystem.h>
 #include <xtd/string.h>
 #include <xtd/time.h>
-#define VECTOR_GROW_AMOUNT(array)      (1)
 #include <collections/vector.h>
 #include <collections/tree-map.h>
 #if defined(_WIN32) || defined(_WIN64)
@@ -75,7 +74,7 @@ static void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_
 static void tz_display_time_grouping_minimal ( lc_tree_map_t* map, time_t now, int name_width, int email_width );
 static void tz_display_utc_grouping ( lc_tree_map_t* map, time_t now );
 static void tz_display_utc_grouping_minimal ( lc_tree_map_t* map, time_t now );
-static bool timezone_map_element_destroy ( void *p_key, void *p_value );
+static void timezone_map_element_destroy ( void *p_key, void *p_value );
 static int  timezone_map_compare ( const void *p_key_left, const void *p_key_right );
 static int  contact_name_compare ( const void *l, const void *r );
 static bool tz_check_alloc( const tz_app_t* app, void* mem );
@@ -147,7 +146,7 @@ int main( int argc, char* argv[] )
 			{
 				if( (arg + 1) < argc )
 				{
-					string_trim( argv[ arg + 1 ], " \t\n" );
+					xtd_string_trim( argv[ arg + 1 ], " \t\n" );
 
 					const char* formats[] = {
 						"%I:%M:%S %p", /* 01:35:10 PM */
@@ -339,7 +338,7 @@ void tz_organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, t
 	{
 		const timezone_contact_t* contact = &contacts[ i ];
 
-		struct tm* tz_time = time_local( now, contact->timezone );
+		struct tm* tz_time = xtd_time_local( now, contact->timezone );
 		char group_key[ 32 ];
 
 		if( organize_by_time )
@@ -353,7 +352,7 @@ void tz_organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, t
 
 		lc_tree_map_iterator_t itr = lc_tree_map_find( map, group_key );
 
-		if( itr != lc_tree_map_end() )
+		if( itr != lc_tree_map_end( map ) )
 		{
 			timezone_contact_t const ** list = itr->value;
 			lc_vector_push( list, contact );
@@ -366,14 +365,14 @@ void tz_organize_data( const timezone_contact_t* contacts, lc_tree_map_t* map, t
 			timezone_contact_t const ** list = NULL;
 			lc_vector_create(list, 1);
 			lc_vector_push(list, contact);
-			lc_tree_map_insert( map, string_dup(group_key), list );
+			lc_tree_map_insert( map, xtd_string_dup(group_key), list );
 		}
 	}
 
 	// sort each list by contact's name.
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-	     itr != lc_tree_map_end( );
-	     itr = lc_tree_map_next(itr) )
+	     itr != lc_tree_map_end( map );
+	     itr = lc_tree_map_next( map, itr ) )
 	{
 		timezone_contact_t** list = itr->value;
 		size_t count = lc_vector_size(list);
@@ -401,8 +400,8 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 	bool first = true;
 
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-	     itr != lc_tree_map_end( );
-	     itr = lc_tree_map_next(itr) )
+	     itr != lc_tree_map_end( map );
+	     itr = lc_tree_map_next( map, itr ) )
 	{
 		timezone_contact_t** list = itr->value;
 
@@ -417,7 +416,7 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 		xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_YELLOW);
 
 
-		struct tm* tz_time = time_local( now, list[0]->timezone );
+		struct tm* tz_time = xtd_time_local( now, list[0]->timezone );
 		char time_str[ 32 ];
 		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
 
@@ -531,13 +530,13 @@ void tz_display_time_grouping_minimal( lc_tree_map_t* map, time_t now, int name_
 	}
 
 	for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-	     itr != lc_tree_map_end( );
-	     itr = lc_tree_map_next(itr) )
+	     itr != lc_tree_map_end( map );
+	     itr = lc_tree_map_next( map, itr ) )
 	{
 		timezone_contact_t** list = itr->value;
 
 
-		struct tm* tz_time = time_local( now, list[0]->timezone );
+		struct tm* tz_time = xtd_time_local( now, list[0]->timezone );
 		char time_str[ 32 ];
 		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
 
@@ -612,8 +611,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 	{
 		wprintf( L"\u250c" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			int column_width = 25;
 			while( column_width-- > 0 )
@@ -635,8 +634,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_MAGENTA );
 			wprintf( L"        UTC%s         ", (const char*) itr->key );
@@ -647,8 +646,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u251c" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			int column_width = 25;
 			while( column_width-- > 0 )
@@ -678,8 +677,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 	{
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -709,8 +708,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 
@@ -718,7 +717,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				struct tm* tz_time = time_local( now, contact->timezone );
+				struct tm* tz_time = xtd_time_local( now, contact->timezone );
 
 				char time_str[12];
 				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
@@ -738,8 +737,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -770,8 +769,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -802,8 +801,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 		wprintf( L"\u2502" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -835,8 +834,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 
@@ -862,8 +861,8 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 	{
 		wprintf( L"\u2514" );
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			int column_width = 25;
 			while( column_width-- > 0 )
@@ -898,8 +897,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 	// start of headers
 	{
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			wprintf( L"UTC%-5s                ", (const char*) itr->key );
 		} // for
@@ -913,8 +912,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 	while( timezone_count > 0 )
 	{
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -940,8 +939,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 		wprintf( L"\n" );
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 
@@ -949,7 +948,7 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				struct tm* tz_time = time_local( now, contact->timezone );
+				struct tm* tz_time = xtd_time_local( now, contact->timezone );
 
 				char time_str[12];
 				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
@@ -965,8 +964,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 		wprintf( L"\n" );
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -992,8 +991,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 		wprintf( L"\n" );
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -1020,8 +1019,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 		wprintf( L"\n" );
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 			if( list && lc_vector_size(list) > 0)
@@ -1049,8 +1048,8 @@ void tz_display_utc_grouping_minimal( lc_tree_map_t* map, time_t now )
 
 
 		for( lc_tree_map_iterator_t itr = lc_tree_map_begin( map );
-		     itr != lc_tree_map_end( );
-		     itr = lc_tree_map_next(itr) )
+		     itr != lc_tree_map_end( map );
+		     itr = lc_tree_map_next( map, itr ) )
 		{
 			timezone_contact_t** list = itr->value;
 
@@ -1088,7 +1087,7 @@ bool tz_read_configuration_from_home( const tz_app_t* app, timezone_contact_t** 
 	snprintf( configuration_filename, sizeof(configuration_filename), "%s/%s", homedir, CONFIGURATION_FILENAME );
 	configuration_filename[ sizeof(configuration_filename) - 1 ] = '\0';
 
-	if( file_exists( configuration_filename ) )
+	if( xtd_path_exists( configuration_filename ) )
 	{
 		if( !tz_configuration_read( app, configuration_filename, contacts ) )
 		{
@@ -1169,7 +1168,7 @@ bool tz_configuration_read( const tz_app_t* app, const char* configuration_name,
 						goto cleanup;
 					}
 
-					string_trim( line, " \t\r\n" );
+					xtd_string_trim( line, " \t\r\n" );
 
 					if( !tz_configuration_read_line(app, line, line_number, &regex, contacts ) )
 					{
@@ -1227,21 +1226,21 @@ bool tz_configuration_read_line( const tz_app_t* app, char* line, int line_numbe
 			tz_string[ tz_string_len ] = '\0';
 
 			line[ matches[ 2 ].rm_eo ] = '\0';
-			size_t email_len = mb_strlen( line + matches[ 2 ].rm_so );
+			size_t email_len = xtd_mb_strlen( line + matches[ 2 ].rm_so );
 			email = malloc( sizeof(wchar_t) * (email_len + 1) );
 			if( !tz_check_alloc(app, email) ) goto line_read_failed;
 			mbstowcs( email, line + matches[ 2 ].rm_so, email_len );
 			email[ email_len ] = '\0';
 
 			line[ matches[ 3 ].rm_eo ] = '\0';
-			size_t name_len = mb_strlen( line + matches[ 3 ].rm_so );
+			size_t name_len = xtd_mb_strlen( line + matches[ 3 ].rm_so );
 			name = malloc( sizeof(wchar_t) * (name_len + 1) );
 			if( !tz_check_alloc(app, name) ) goto line_read_failed;
 			mbstowcs( name, line + matches[ 3 ].rm_so, name_len );
 			name[ name_len ] = '\0';
 
 			line[ matches[ 4 ].rm_eo ] = '\0';
-			size_t office_phone_len = mb_strlen( line + matches[ 4 ].rm_so );
+			size_t office_phone_len = xtd_mb_strlen( line + matches[ 4 ].rm_so );
 			office_phone = malloc( sizeof(wchar_t) * (office_phone_len + 1) );
 			if( !tz_check_alloc(app, office_phone) ) goto line_read_failed;
 			mbstowcs( office_phone, line + matches[ 4 ].rm_so, office_phone_len );
@@ -1249,13 +1248,13 @@ bool tz_configuration_read_line( const tz_app_t* app, char* line, int line_numbe
 
 
 			line[ matches[ 5 ].rm_eo ] = '\0';
-			size_t mobile_phone_len = mb_strlen( line + matches[ 5 ].rm_so );
+			size_t mobile_phone_len = xtd_mb_strlen( line + matches[ 5 ].rm_so );
 			mobile_phone = malloc( sizeof(wchar_t) * (mobile_phone_len + 1) );
 			if( !tz_check_alloc(app, mobile_phone) ) goto line_read_failed;
 			mbstowcs( mobile_phone, line + matches[ 5 ].rm_so, mobile_phone_len );
 			mobile_phone[ mobile_phone_len ] = '\0';
 
-			double utc_offset = time_utc_offset( tz_string );
+			double utc_offset = xtd_time_utc_offset( tz_string );
 
 			timezone_contact_t contact = (timezone_contact_t) {
 				.utc_offset   = utc_offset,
@@ -1316,7 +1315,7 @@ bool tz_configuration_write_default( const char* configuration_filename )
 	return result;
 }
 
-bool timezone_map_element_destroy( void *p_key, void *p_value )
+void timezone_map_element_destroy( void *p_key, void *p_value )
 {
 	timezone_contact_t** list = p_value;
 
@@ -1331,8 +1330,6 @@ bool timezone_map_element_destroy( void *p_key, void *p_value )
 
 		lc_vector_destroy(list);
 	}
-
-	return true;
 }
 
 int timezone_map_compare( const void *p_key_left, const void *p_key_right )
