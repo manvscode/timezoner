@@ -323,9 +323,9 @@ void tz_print_error(const tz_app_t* app,  const char* format, ... )
 	}
 	else
 	{
-		console_fg_color_8( stderr, CONSOLE_COLOR8_RED );
+		xtd_console_fg_color_8( stderr, XTD_CONSOLE_COLOR8_RED );
 		fprintf( stderr, "ERROR: " );
-		console_reset( stderr );
+		xtd_console_reset( stderr );
 	}
 
 	vfprintf( stderr, format, args );
@@ -414,7 +414,7 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 		{
 			wprintf( L"\u251c\u2500\u2500\u2524 " );
 		}
-		wconsole_fg_color_8( stdout, CONSOLE_COLOR8_BRIGHT_YELLOW);
+		xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_YELLOW);
 
 
 		struct tm* tz_time = time_local( now, list[0]->timezone );
@@ -422,7 +422,7 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 		strftime(time_str, sizeof(time_str), "%r" /* %T for 24-hour time */, tz_time );
 
 		wprintf( L"%s", time_str );
-		wconsole_reset( stdout );
+		xtd_wconsole_reset( stdout );
 
 		wprintf( L" \u251c" );
 		int count = 35 + name_width + email_width;
@@ -446,7 +446,7 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 
 			wprintf( L"\u2502 " );
 
-			wconsole_fg_color_8( stdout, CONSOLE_COLOR8_BRIGHT_CYAN);
+			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_CYAN);
 			if( wcslen(contact->name) > name_width)
 			{
 				// truncated
@@ -457,9 +457,9 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 				// fixed width
 				wprintf( L"%-*ls  ", name_width, contact->name );
 			}
-			wconsole_reset( stdout );
+			xtd_wconsole_reset( stdout );
 
-			wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 			if( wcslen(contact->email) > email_width)
 			{
 				// truncated
@@ -470,9 +470,9 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 				// fixed width
 				wprintf( L"%lc %-*ls  ", (wchar_t) 0x2709, email_width, contact->email );
 			}
-			wconsole_reset( stdout );
+			xtd_wconsole_reset( stdout );
 
-			wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 			if( wcslen(contact->office_phone) > 19)
 			{
 				// truncated
@@ -483,9 +483,9 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 				// fixed width
 				wprintf( L"%lc  %-*ls ", (wchar_t) 0x260e, 19, contact->office_phone );
 			}
-			wconsole_reset( stdout );
+			xtd_wconsole_reset( stdout );
 
-			wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 			if( wcslen(contact->mobile_phone) > 19)
 			{
 				// truncated
@@ -496,7 +496,7 @@ void tz_display_time_grouping ( lc_tree_map_t* map, time_t now, int name_width, 
 				// fixed width
 				wprintf( L"%lc%-*ls ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 			}
-			wconsole_reset( stdout );
+			xtd_wconsole_reset( stdout );
 
 			wprintf( L"\u2502\n" );
 		} // for
@@ -638,9 +638,9 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 		     itr != lc_tree_map_end( );
 		     itr = lc_tree_map_next(itr) )
 		{
-			wconsole_fg_color_8( stdout, CONSOLE_COLOR8_BRIGHT_MAGENTA );
+			xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_MAGENTA );
 			wprintf( L"        UTC%s         ", (const char*) itr->key );
-			wconsole_reset( stdout );
+			xtd_wconsole_reset( stdout );
 			wprintf( L"\u2502" );
 		} // for
 		wprintf( L"\n" );
@@ -686,7 +686,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				wconsole_fg_color_8( stdout, CONSOLE_COLOR8_BRIGHT_CYAN);
+				xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_CYAN);
 				if( wcslen(contact->name) > 23)
 				{
 					// truncated
@@ -697,7 +697,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 					// fixed width
 					wprintf( L" %-*ls ", 23, contact->name );
 				}
-				wconsole_reset( stdout );
+				xtd_wconsole_reset( stdout );
 			}
 			else
 			{
@@ -724,9 +724,9 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 				strftime(time_str, sizeof(time_str), "%I:%M:%S %p", tz_time);
 				time_str[ sizeof(time_str) - 1 ] = '\0';
 
-				wconsole_fg_color_8( stdout, CONSOLE_COLOR8_BRIGHT_YELLOW);
+				xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_BRIGHT_YELLOW);
 				wprintf( L"  \u23f0 %-*s ", 19, time_str );
-				wconsole_reset( stdout );
+				xtd_wconsole_reset( stdout );
 			}
 			else
 			{
@@ -746,7 +746,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+				xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 
 				if( wcslen(contact->email) > 20)
 				{
@@ -758,7 +758,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 					// fixed width
 					wprintf( L"  %lc %-*ls ", (wchar_t) 0x2709, 20, contact->email );
 				}
-				wconsole_reset( stdout );
+				xtd_wconsole_reset( stdout );
 			}
 			else
 			{
@@ -778,7 +778,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+				xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 				if( wcslen(contact->office_phone) > 17)
 				{
 					// truncated
@@ -789,7 +789,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 					// fixed width
 					wprintf( L"  \u260E  %-*ls ", 19, contact->office_phone );
 				}
-				wconsole_reset( stdout );
+				xtd_wconsole_reset( stdout );
 			}
 			else
 			{
@@ -810,7 +810,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 			{
 				timezone_contact_t* contact = lc_vector_last(list);
 
-				wconsole_fg_color_8( stdout, CONSOLE_COLOR8_GREY_15);
+				xtd_wconsole_fg_color_8( stdout, XTD_CONSOLE_COLOR8_GREY_15);
 				if( wcslen(contact->mobile_phone) > 17)
 				{
 					// truncated
@@ -821,7 +821,7 @@ void tz_display_utc_grouping( lc_tree_map_t* map, time_t now )
 					// fixed width
 					wprintf( L"   %lc%-*ls ", (wchar_t) 0x1f4f1, 19, contact->mobile_phone );
 				}
-				wconsole_reset( stdout );
+				xtd_wconsole_reset( stdout );
 				wprintf( L"\u2502" );
 			}
 			else
